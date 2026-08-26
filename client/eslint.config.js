@@ -18,4 +18,14 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // shadcn/ui generated components follow their own conventions:
+    // they `import * as React` and co-export variant helpers alongside
+    // the component. Relax the two rules that conflict with that pattern.
+    files: ['src/components/ui/**/*.{js,jsx}'],
+    rules: {
+      'no-unused-vars': ['error', { varsIgnorePattern: '^React$' }],
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])
