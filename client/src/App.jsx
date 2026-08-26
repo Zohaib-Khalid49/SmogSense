@@ -1,9 +1,11 @@
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+
 function App() {
   return (
     <div className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-6 p-6">
-      <h1 className="text-2xl font-bold text-[var(--color-ink)]">
-        SmogSense theme check
-      </h1>
+      <h1 className="text-2xl font-bold">SmogSense component check</h1>
 
       {/* Hazard band color test */}
       <div className="flex w-full flex-col gap-3">
@@ -18,10 +20,23 @@ function App() {
         </div>
       </div>
 
-      <p className="text-sm text-[var(--color-muted)]">
-        If these three bands are green, amber, and red with the Inter font, the
-        theme is wired up correctly.
-      </p>
+      {/* shadcn/ui component test */}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>shadcn/ui works</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col items-start gap-3">
+          <p className="text-sm text-muted-foreground">
+            Card, Button, and Badge below should look polished and match the
+            theme.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button>Primary</Button>
+            <Button variant="outline">Outline</Button>
+            <Badge>Confidence: High</Badge>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

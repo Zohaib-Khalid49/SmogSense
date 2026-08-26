@@ -1,60 +1,130 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
 
 /* ============================================================
    SmogSense Design System (locked)
    - Mobile-first, calm health-utility feel
    - Hazard band colors are the core system
    - Light + dark mode
+   - shadcn/ui token layer included below
    ============================================================ */
 
-@theme {
-  /* Fonts */
+@theme inline {
   --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
 
-  /* Hazard band colors */
-  --color-safe: #16a34a;
-  --color-safe-soft: #22c55e;
-  --color-caution: #f59e0b;
-  --color-caution-soft: #fbbf24;
-  --color-hazard: #dc2626;
-  --color-hazard-soft: #ef4444;
+  /* SmogSense hazard band colors */
+  --color-safe: var(--safe);
+  --color-safe-soft: var(--safe-soft);
+  --color-caution: var(--caution);
+  --color-caution-soft: var(--caution-soft);
+  --color-hazard: var(--hazard);
+  --color-hazard-soft: var(--hazard-soft);
 
-  /* Neutrals */
-  --color-bg: #f8fafc;
-  --color-surface: #ffffff;
-  --color-ink: #1e293b;
-  --color-muted: #64748b;
-  --color-border: #e2e8f0;
-
-  /* Rounded corners */
   --radius-card: 1rem;
+
+  /* shadcn/ui token mapping */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
 }
 
-/* Dark mode tokens (applied when <html class="dark">) */
+:root {
+  --radius: 0.75rem;
+
+  /* SmogSense hazard colors */
+  --safe: #16a34a;
+  --safe-soft: #22c55e;
+  --caution: #f59e0b;
+  --caution-soft: #fbbf24;
+  --hazard: #dc2626;
+  --hazard-soft: #ef4444;
+
+  /* shadcn slate — light */
+  --background: #f8fafc;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+  --primary: #1e293b;
+  --primary-foreground: #f8fafc;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #1e293b;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #1e293b;
+  --destructive: #dc2626;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #94a3b8;
+}
+
 .dark {
-  --color-bg: #0f172a;
-  --color-surface: #1e293b;
-  --color-ink: #f1f5f9;
-  --color-muted: #94a3b8;
-  --color-border: #334155;
+  /* shadcn slate — dark */
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --card: #1e293b;
+  --card-foreground: #f1f5f9;
+  --popover: #1e293b;
+  --popover-foreground: #f1f5f9;
+  --primary: #f8fafc;
+  --primary-foreground: #1e293b;
+  --secondary: #334155;
+  --secondary-foreground: #f1f5f9;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --accent: #334155;
+  --accent-foreground: #f1f5f9;
+  --destructive: #ef4444;
+  --border: #334155;
+  --input: #334155;
+  --ring: #64748b;
 }
 
-/* Base */
-html {
-  color-scheme: light dark;
-}
+@layer base {
+  * {
+    border-color: var(--color-border);
+    outline-color: var(--color-ring);
+  }
 
-body {
-  margin: 0;
-  min-height: 100svh;
-  background-color: var(--color-bg);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
+  html {
+    color-scheme: light dark;
+  }
 
-#root {
-  min-height: 100svh;
+  body {
+    margin: 0;
+    min-height: 100svh;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
 }
