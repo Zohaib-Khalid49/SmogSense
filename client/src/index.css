@@ -1,0 +1,60 @@
+@import 'tailwindcss';
+
+/* ============================================================
+   SmogSense Design System (locked)
+   - Mobile-first, calm health-utility feel
+   - Hazard band colors are the core system
+   - Light + dark mode
+   ============================================================ */
+
+@theme {
+  /* Fonts */
+  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /* Hazard band colors */
+  --color-safe: #16a34a;
+  --color-safe-soft: #22c55e;
+  --color-caution: #f59e0b;
+  --color-caution-soft: #fbbf24;
+  --color-hazard: #dc2626;
+  --color-hazard-soft: #ef4444;
+
+  /* Neutrals */
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-ink: #1e293b;
+  --color-muted: #64748b;
+  --color-border: #e2e8f0;
+
+  /* Rounded corners */
+  --radius-card: 1rem;
+}
+
+/* Dark mode tokens (applied when <html class="dark">) */
+.dark {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-ink: #f1f5f9;
+  --color-muted: #94a3b8;
+  --color-border: #334155;
+}
+
+/* Base */
+html {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background-color: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100svh;
+}
