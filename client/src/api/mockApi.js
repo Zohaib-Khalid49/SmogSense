@@ -66,3 +66,45 @@ export function getHazardStatus({ band = 'hazard' } = {}) {
     }, 600)
   })
 }
+
+/**
+ * Alert detail response shape:
+ * {
+ *   id:              string   (alert id)
+ *   reason:          string   (why the alert fired)
+ *   band:            'safe' | 'caution' | 'hazard'
+ *   pm25:            number   (µg/m³)
+ *   confidence:      'high' | 'medium' | 'model'
+ *   recommendation:  string   (plain-language action)
+ *   location:        string   (human-readable area name)
+ *   triggeredAt:     string   (ISO timestamp)
+ *   type:            'scheduled' | 'threshold_change'
+ * }
+ */
+
+const MOCK_ALERT = {
+  id: 'alert_001',
+  reason: 'Hazard band changed from Caution to Hazardous in your area.',
+  band: 'hazard',
+  pm25: 214,
+  confidence: 'model',
+  recommendation:
+    'Air is hazardous. Avoid going outside if you can. If you must, wear an N95 and keep the trip short.',
+  location: 'Gulberg, Lahore',
+  triggeredAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 min ago
+  type: 'threshold_change',
+}
+
+/**
+ * Fetch the latest alert detail.
+ * In production this would take an alert ID; for now returns a single mock.
+ *
+ * @returns {Promise<Object>} alert detail in the contract shape
+ */
+export function getAlertDetail() {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(MOCK_ALERT)
+    }, 400)
+  })
+}
