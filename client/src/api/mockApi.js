@@ -108,3 +108,77 @@ export function getAlertDetail() {
     }, 400)
   })
 }
+
+/**
+ * Route comparison response shape:
+ * {
+ *   origin:      string   (human-readable name)
+ *   destination: string   (human-readable name)
+ *   routes: [
+ *     {
+ *       id:        string
+ *       label:     string   (e.g. "Direct route", "Alternative route")
+ *       pm25:      number   (average exposure along route, µg/m³)
+ *       band:      'safe' | 'caution' | 'hazard'
+ *       distance:  string   (e.g. "4.2 km")
+ *       duration:  string   (e.g. "12 min")
+ *       coords:    [lat, lng][]  (polyline for map display)
+ *     }
+ *   ]
+ *   recommended: string  (id of the lower-exposure route)
+ * }
+ */
+
+const MOCK_ROUTE_COMPARISON = {
+  origin: 'Gulberg III, Lahore',
+  destination: 'Lahore Grammar School, Johar Town',
+  routes: [
+    {
+      id: 'direct',
+      label: 'Direct route',
+      pm25: 187,
+      band: 'hazard',
+      distance: '4.2 km',
+      duration: '12 min',
+      coords: [
+        [31.5204, 74.3587],
+        [31.5180, 74.3600],
+        [31.5150, 74.3620],
+        [31.5120, 74.3650],
+        [31.5080, 74.3680],
+        [31.5050, 74.3710],
+      ],
+    },
+    {
+      id: 'alternative',
+      label: 'Alternative route',
+      pm25: 134,
+      band: 'caution',
+      distance: '5.8 km',
+      duration: '17 min',
+      coords: [
+        [31.5204, 74.3587],
+        [31.5210, 74.3620],
+        [31.5200, 74.3670],
+        [31.5170, 74.3700],
+        [31.5120, 74.3720],
+        [31.5050, 74.3710],
+      ],
+    },
+  ],
+  recommended: 'alternative',
+}
+
+/**
+ * Fetch a route comparison between two points.
+ * In production, takes origin + destination coordinates; for now returns mock.
+ *
+ * @returns {Promise<Object>} route comparison in the contract shape
+ */
+export function getRouteComparison() {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve(MOCK_ROUTE_COMPARISON)
+    }, 800)
+  })
+}
