@@ -12,7 +12,10 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { BAND_CONFIG } from '@/lib/hazard'
-import { getRouteComparison } from '@/api/mockApi'
+import { getRouteCheck } from '@/api/client'
+import { getLocation, LAHORE_CENTER } from '@/lib/geolocation'
+import StatusMessage from '@/components/StatusMessage'
+import { getUserMessage } from '@/api/apiError'
 
 /** Color for route polylines based on band */
 const POLYLINE_COLORS = {
@@ -25,35 +28,75 @@ export default function RouteCheck() {
   const [data, setData] = useState(null)
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
-  const [searched, setSearched] = useState(true) // auto-search on mount
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const loading = searched && data === null
+  // Geolocation — pre-fill origin with user's location
+  const [originCoords, setOriginCoords] = useState(LAHORE_CENTER)
+  const [destCoords] = useState({ lat: 31.4697, lng: 74.4100 }) // default Johar Town
 
-  function handleSearch(e) {
-    e.preventDefault()
-    setSearched(true)
-    setData(null)
-    getRouteComparison().then((result) => {
-      setData(result)
-      if (!origin) setOrigin(result.origin)
-      if (!destination) setDestination(result.destination)
-    })
-  }
-
-  // Auto-search on first mount for demo purposes
+  // Get user's location on mount to pre-fill origin
   useEffect(() => {
     let active = true
-    getRouteComparison().then((result) => {
+    getLocation().then((loc) => {
       if (active) {
-        setData(result)
-        setOrigin(result.origin)
-        setDestination(result.destination)
+        setOriginCoords({ lat: loc.lat, lng: loc.lng })
+        if (!origin) setOrigin(loc.source === 'gps' ? 'Your location' : 'Central Lahore')
       }
     })
     return () => {
       active = false
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Auto-fetch on mount for demo
+  useEffect(() => {
+    let active = true
+    getRouteCheck({
+      originLat: originCoords.lat,
+      originLng: originCoords.lng,
+      destLat: destCoords.lat,
+      destLng: destCoords.lng,
+    }).then((result) => {
+      if (active) {
+        setData(result)
+        if (result) {
+          if (!origin) setOrigin(result.origin || 'Your location')
+          if (!destination) setDestination(result.destination || '')
+        }
+        setLoading(false)
+      }
+    }).catch((err) => {
+      if (active) {
+        setError(err)
+        setLoading(false)
+      }
+    })
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function handleSearch(e) {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+    setData(null)
+    getRouteCheck({
+      originLat: originCoords.lat,
+      originLng: originCoords.lng,
+      destLat: destCoords.lat,
+      destLng: destCoords.lng,
+    }).then((result) => {
+      setData(result)
+      setLoading(false)
+    }).catch((err) => {
+      setError(err)
+      setLoading(false)
+    })
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -86,13 +129,22 @@ export default function RouteCheck() {
             className="w-full rounded-xl border border-input bg-card py-3 pl-10 pr-4 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
-        <Button type="submit" className="self-end shadow-sm">
-          Compare routes
+        <Button type="submit" disabled={loading} className="self-end shadow-sm">
+          {loading ? 'Comparing…' : 'Compare routes'}
         </Button>
       </form>
 
+      {/* Error state */}
+      {error && (
+        <StatusMessage
+          type="error"
+          message={getUserMessage(error)}
+          onRetry={handleSearch}
+        />
+      )}
+
       {/* Loading */}
-      {loading && (
+      {loading && !data && (
         <div className="flex min-h-44 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
@@ -186,7 +238,7 @@ export default function RouteCheck() {
           {/* External directions link */}
           <Button asChild variant="outline" className="gap-2 shadow-sm">
             <a
-              href={`https://www.google.com/maps/dir/${encodeURIComponent(data.origin)}/${encodeURIComponent(data.destination)}`}
+              href={`https://www.google.com/maps/dir/${encodeURIComponent(data.origin || origin)}/${encodeURIComponent(data.destination || destination)}`}
               target="_blank"
               rel="noopener noreferrer"
             >

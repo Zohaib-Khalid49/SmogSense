@@ -8,6 +8,8 @@ import SubDetailPicker from '@/components/SubDetailPicker'
 import ProfileList from '@/components/ProfileList'
 import { PROFILE_TYPES, getProfileType } from '@/lib/profiles'
 import { loadProfiles, saveProfiles } from '@/lib/storage'
+import { createProfile } from '@/api/client'
+import { getUserId } from '@/lib/identity'
 
 /**
  * Steps:
@@ -55,14 +57,27 @@ export default function ProfileSetup() {
   }
 
   function addProfile() {
+    const profileLabel = label.trim() || selectedType?.label || ''
     const newProfile = {
       profileId: selectedId,
       subDetail,
-      label: label.trim() || selectedType?.label || '',
+      label: profileLabel,
     }
+    // Save to localStorage (always — for offline + fast reads)
     const updated = [...profiles, newProfile]
     setProfiles(updated)
     saveProfiles(updated)
+
+    // Also call the API client (in live mode this hits the backend)
+    createProfile({
+      userId: getUserId(),
+      name: profileLabel,
+      category: selectedId,
+      subDetail,
+    }).catch(() => {
+      // Silently fail — localStorage is the source of truth for now
+    })
+
     resetForm()
     setStep('done')
   }
