@@ -109,6 +109,15 @@
     outline-color: var(--color-ring);
   }
 
+  /* Hide scrollbar but keep scrolling — for horizontal pill bars etc. */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   html {
     color-scheme: light dark;
     -webkit-text-size-adjust: 100%;
