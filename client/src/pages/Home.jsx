@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Route as RouteIcon, Loader2, CloudSun, RefreshCw } from 'lucide-react'
+import {
+  Route as RouteIcon,
+  Loader2,
+  CloudSun,
+  RefreshCw,
+  ChevronDown,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import HazardCard from '@/components/HazardCard'
 import LocationHint from '@/components/LocationHint'
@@ -8,13 +14,10 @@ import StatusMessage from '@/components/StatusMessage'
 import { getHazardStatus } from '@/api/client'
 import { getLocation } from '@/lib/geolocation'
 import { getUserMessage } from '@/api/apiError'
+import { loadProfiles } from '@/lib/storage'
+import { getProfileType } from '@/lib/profiles'
 
 const POLL_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
-
-// Dev-only toggle: only visible in dev mode AND mock mode
-const SHOW_DEV_TOGGLE =
-  import.meta.env.DEV && import.meta.env.VITE_USE_MOCKS !== 'false'
-const DEV_BANDS = ['safe', 'caution', 'hazard']
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -27,25 +30,48 @@ export default function Home() {
   // Data states
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)  // ApiError or Error
+  const [error, setError] = useState(null)
   const [noData, setNoData] = useState(false)
 
   // Geolocation
-  const [geo, setGeo] = useState(null) // { lat, lng, source, hint }
+  const [geo, setGeo] = useState(null)
 
-  // Dev toggle (only used when SHOW_DEV_TOGGLE is true)
-  const [devBand, setDevBand] = useState('hazard')
+  // Profile switcher
+  const [profiles, setProfiles] = useState(() => loadProfiles())
+  const [activeProfileIndex, setActiveProfileIndex] = useState(0)
+  const activeProfile = profiles[activeProfileIndex] ?? null
+  const activeCategory = activeProfile?.profileId ?? 'adult'
 
   // Refs for cleanup
   const pollTimer = useRef(null)
   const abortRef = useRef(false)
 
+  // Reload profiles from localStorage (in case they changed on the setup page)
+  useEffect(() => {
+    function handleStorage() {
+      setProfiles(loadProfiles())
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
+  // Also refresh profiles when the page becomes visible (navigated back from setup)
+  useEffect(() => {
+    function handleVisibilityProfiles() {
+      if (document.visibilityState === 'visible') {
+        setProfiles(loadProfiles())
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityProfiles)
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityProfiles)
+  }, [])
+
   /**
-   * Fetch hazard status using current geo + optional dev band override.
-   * Handles loading, error, and noData states.
+   * Fetch hazard status using current geo + active profile category.
    */
   const fetchStatus = useCallback(
-    async (currentGeo, band) => {
+    async (currentGeo, profileCategory) => {
       abortRef.current = false
       setLoading(true)
       setError(null)
@@ -55,7 +81,7 @@ export default function Home() {
         const result = await getHazardStatus({
           lat: currentGeo?.lat,
           lng: currentGeo?.lng,
-          band: SHOW_DEV_TOGGLE ? band : undefined,
+          profileCategory,
         })
 
         if (abortRef.current) return
@@ -69,7 +95,6 @@ export default function Home() {
       } catch (err) {
         if (abortRef.current) return
         setError(err)
-        // Keep stale status visible if we had one
       } finally {
         if (!abortRef.current) setLoading(false)
       }
@@ -83,8 +108,8 @@ export default function Home() {
   const refresh = useCallback(async () => {
     const loc = await getLocation()
     setGeo(loc)
-    await fetchStatus(loc, devBand)
-  }, [devBand, fetchStatus])
+    await fetchStatus(loc, activeCategory)
+  }, [activeCategory, fetchStatus])
 
   // Initial load
   useEffect(() => {
@@ -94,32 +119,32 @@ export default function Home() {
     }
   }, [refresh])
 
-  // Re-fetch when dev band changes (dev mode only)
+  // Re-fetch when active profile changes
   useEffect(() => {
-    if (!SHOW_DEV_TOGGLE || !geo) return
-    fetchStatus(geo, devBand) // eslint-disable-line react-hooks/set-state-in-effect
-  }, [devBand, geo, fetchStatus])
+    if (!geo) return
+    fetchStatus(geo, activeCategory) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [activeCategory, geo, fetchStatus])
 
   // Auto-poll every 15 minutes
   useEffect(() => {
     pollTimer.current = setInterval(() => {
-      if (geo) fetchStatus(geo, devBand)
+      if (geo) fetchStatus(geo, activeCategory)
     }, POLL_INTERVAL_MS)
 
     return () => clearInterval(pollTimer.current)
-  }, [geo, devBand, fetchStatus])
+  }, [geo, activeCategory, fetchStatus])
 
   // Re-fetch when tab comes back into focus
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState === 'visible' && geo) {
-        fetchStatus(geo, devBand)
+        fetchStatus(geo, activeCategory)
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () =>
       document.removeEventListener('visibilitychange', handleVisibility)
-  }, [geo, devBand, fetchStatus])
+  }, [geo, activeCategory, fetchStatus])
 
   // Derived
   const bandKey = status?.band ?? 'safe'
@@ -151,19 +176,54 @@ export default function Home() {
         </button>
       </header>
 
+      {/* Profile switcher */}
+      {profiles.length > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Viewing for</span>
+          <div className="relative">
+            <select
+              value={activeProfileIndex}
+              onChange={(e) => setActiveProfileIndex(Number(e.target.value))}
+              className="appearance-none rounded-lg border border-border bg-card py-1.5 pl-3 pr-8 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {profiles.map((p, i) => {
+                const type = getProfileType(p.profileId)
+                return (
+                  <option key={i} value={i}>
+                    {p.label || type?.label || p.profileId}
+                  </option>
+                )
+              })}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          </div>
+        </div>
+      )}
+
+      {/* No profiles hint */}
+      {profiles.length === 0 && (
+        <Link
+          to="/setup"
+          className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-sm text-primary transition-colors hover:bg-primary/10"
+        >
+          <span className="font-medium">Set up your profile</span>
+          <span className="text-xs text-muted-foreground">
+            — for personalized thresholds
+          </span>
+        </Link>
+      )}
+
       {/* Location hint (shown when not using live GPS) */}
       {geo && <LocationHint hint={geo.hint} source={geo.source} />}
 
       {/* ── Status area: loading / error / noData / success ────────── */}
 
-      {/* First load spinner */}
       {isFirstLoad && (
         <div className="flex min-h-56 items-center justify-center rounded-[var(--radius-card)] border border-border bg-card">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
-      {/* Error state (with stale data still visible below if available) */}
       {error && !isFirstLoad && (
         <StatusMessage
           type="error"
@@ -173,7 +233,6 @@ export default function Home() {
         />
       )}
 
-      {/* No data state */}
       {noData && !loading && (
         <StatusMessage
           type="noData"
@@ -183,10 +242,8 @@ export default function Home() {
         />
       )}
 
-      {/* Hazard card (shown on success, or stale during a background refresh) */}
       {status && !isFirstLoad && (
         <div className="relative">
-          {/* Colored glow behind the card */}
           <div
             className="pointer-events-none absolute inset-0 -z-10 translate-y-4 scale-95 rounded-[var(--radius-card)] opacity-30 blur-2xl"
             style={{ backgroundColor: `var(--${bandKey})` }}
@@ -203,28 +260,6 @@ export default function Home() {
           Plan a trip
         </Link>
       </Button>
-
-      {/* Dev-only band preview toggle */}
-      {SHOW_DEV_TOGGLE && (
-        <div className="mt-2 rounded-lg border border-dashed border-border/60 bg-muted/30 p-3">
-          <p className="mb-2 text-xs font-medium text-muted-foreground">
-            Dev preview — switch band
-          </p>
-          <div className="flex gap-2">
-            {DEV_BANDS.map((b) => (
-              <Button
-                key={b}
-                size="sm"
-                variant={devBand === b ? 'default' : 'outline'}
-                onClick={() => setDevBand(b)}
-                className="flex-1 capitalize"
-              >
-                {b}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
