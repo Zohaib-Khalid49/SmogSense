@@ -39,15 +39,31 @@ export const CONFIDENCE_LABEL = {
   insufficient: 'Insufficient data',
 }
 
-/** Format an ISO timestamp into a short "Updated 7:04 AM" style string. */
+/** Format an ISO timestamp into a short "Updated 7:04 AM" or "Updated 25 Aug, 7:04 AM" string. */
 export function formatUpdatedAt(iso) {
   try {
     const d = new Date(iso)
+    const now = new Date()
     const time = d.toLocaleTimeString([], {
       hour: 'numeric',
       minute: '2-digit',
     })
-    return `Updated ${time}`
+
+    // Same day — just show the time
+    if (
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear()
+    ) {
+      return `Updated ${time}`
+    }
+
+    // Different day — show date + time
+    const date = d.toLocaleDateString([], {
+      day: 'numeric',
+      month: 'short',
+    })
+    return `Updated ${date}, ${time}`
   } catch {
     return 'Updated just now'
   }

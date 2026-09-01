@@ -55,16 +55,18 @@ export default function ProfileList({ profiles, onAdd, onRemove }) {
         })}
       </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={onAdd}
-        className="gap-1.5 self-start"
-      >
-        <Plus className="size-4" />
-        Add another profile
-      </Button>
+      {onAdd && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onAdd}
+          className="gap-1.5 self-start"
+        >
+          <Plus className="size-4" />
+          Add another profile
+        </Button>
+      )}
 
       <p className="text-xs text-muted-foreground">
         Caregivers can track multiple people (e.g., a child and an elderly
