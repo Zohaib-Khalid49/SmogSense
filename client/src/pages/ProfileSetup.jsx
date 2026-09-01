@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ChevronRight, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import ProfileCard from '@/components/ProfileCard'
 import SubDetailPicker from '@/components/SubDetailPicker'
 import ProfileList from '@/components/ProfileList'
@@ -90,16 +91,36 @@ export default function ProfileSetup() {
     navigate('/')
   }
 
+  // --- Step indicator ---
+  const STEPS = ['select', 'subdetail', 'label', 'done']
+  const stepIndex = STEPS.indexOf(step)
+
   // --- Render ---
 
   return (
     <div className="flex flex-col gap-5">
-      <header className="flex flex-col gap-1">
-        <h1 className="text-xl font-bold">Who is this for?</h1>
-        <p className="text-sm text-muted-foreground">
-          Select a profile so SmogSense can give you the right thresholds and
-          recommendations.
-        </p>
+      <header className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl font-bold">Who is this for?</h1>
+          <p className="text-sm text-muted-foreground">
+            Select a profile so SmogSense can personalize thresholds and
+            recommendations for you.
+          </p>
+        </div>
+        {/* Step progress dots */}
+        <div className="flex items-center gap-1.5">
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className={cn(
+                'h-1.5 rounded-full transition-all duration-300',
+                i <= stepIndex
+                  ? 'w-8 bg-primary'
+                  : 'w-4 bg-border',
+              )}
+            />
+          ))}
+        </div>
       </header>
 
       {/* Step: select profile type */}

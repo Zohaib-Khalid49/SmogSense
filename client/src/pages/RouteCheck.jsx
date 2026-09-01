@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { MapContainer, TileLayer, Polyline } from 'react-leaflet'
 import {
-  ChevronLeft,
   Loader2,
   MapPin,
   Navigation,
   Star,
+  ExternalLink,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -36,7 +35,6 @@ export default function RouteCheck() {
     setData(null)
     getRouteComparison().then((result) => {
       setData(result)
-      // Pre-fill inputs from mock if user left them empty
       if (!origin) setOrigin(result.origin)
       if (!destination) setDestination(result.destination)
     })
@@ -58,25 +56,16 @@ export default function RouteCheck() {
   }, [])
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Back nav */}
-      <Link
-        to="/"
-        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ChevronLeft className="size-4" />
-        Back to Home
-      </Link>
-
+    <div className="flex flex-col gap-5">
       <header>
-        <h1 className="text-xl font-bold">Route / Trip Check</h1>
+        <h1 className="text-xl font-bold">Route Check</h1>
         <p className="text-sm text-muted-foreground">
-          Compare exposure between two route options before you leave.
+          Compare air quality between two route options.
         </p>
       </header>
 
       {/* Origin / Destination form */}
-      <form onSubmit={handleSearch} className="flex flex-col gap-2">
+      <form onSubmit={handleSearch} className="flex flex-col gap-2.5">
         <div className="relative">
           <MapPin className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -84,7 +73,7 @@ export default function RouteCheck() {
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
             placeholder="Origin (e.g. Gulberg III)"
-            className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-xl border border-input bg-card py-3 pl-10 pr-4 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
         <div className="relative">
@@ -94,31 +83,31 @@ export default function RouteCheck() {
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
             placeholder="Destination (e.g. Johar Town)"
-            className="w-full rounded-lg border border-input bg-background py-2.5 pl-9 pr-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="w-full rounded-xl border border-input bg-card py-3 pl-10 pr-4 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
         </div>
-        <Button type="submit" size="sm" className="self-end">
+        <Button type="submit" className="self-end shadow-sm">
           Compare routes
         </Button>
       </form>
 
       {/* Loading */}
       {loading && (
-        <div className="flex min-h-40 items-center justify-center rounded-[var(--radius-card)] border border-border bg-card">
+        <div className="flex min-h-44 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
         </div>
       )}
 
-      {/* Map + comparison (shown after data loads) */}
+      {/* Map + comparison */}
       {data && (
         <>
           {/* Leaflet map */}
-          <div className="overflow-hidden rounded-[var(--radius-card)] border border-border shadow-sm">
+          <div className="overflow-hidden rounded-2xl border border-border shadow-md">
             <MapContainer
               center={[31.515, 74.365]}
               zoom={14}
               scrollWheelZoom={false}
-              className="z-0 h-52 w-full"
+              className="z-0 h-56 w-full"
             >
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -140,7 +129,8 @@ export default function RouteCheck() {
           </div>
 
           {/* Route comparison cards */}
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium">Route comparison</p>
             {data.routes.map((route) => {
               const cfg = BAND_CONFIG[route.band] ?? BAND_CONFIG.hazard
               const isRecommended = route.id === data.recommended
@@ -148,23 +138,23 @@ export default function RouteCheck() {
                 <Card
                   key={route.id}
                   className={cn(
-                    'transition-all',
-                    isRecommended && 'ring-2 ring-primary/30',
+                    'overflow-hidden transition-all',
+                    isRecommended && 'ring-2 ring-primary/30 shadow-md',
                   )}
                 >
-                  <CardContent className="flex items-center gap-3 p-4">
-                    {/* Band indicator */}
+                  <CardContent className="flex items-center gap-4 p-4">
+                    {/* PM2.5 circle */}
                     <div
                       className={cn(
-                        'flex size-10 flex-shrink-0 items-center justify-center rounded-full text-white',
+                        'flex size-12 flex-shrink-0 items-center justify-center rounded-full text-white shadow-sm',
                         cfg.bg,
                       )}
                     >
-                      <span className="text-xs font-bold">{route.pm25}</span>
+                      <span className="text-sm font-bold">{route.pm25}</span>
                     </div>
 
                     {/* Route info */}
-                    <div className="flex flex-1 flex-col gap-0.5">
+                    <div className="flex flex-1 flex-col gap-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold">
                           {route.label}
@@ -172,17 +162,19 @@ export default function RouteCheck() {
                         {isRecommended && (
                           <Badge
                             variant="secondary"
-                            className="gap-0.5 text-[10px]"
+                            className="gap-0.5 text-[10px] font-medium"
                           >
                             <Star className="size-3" />
-                            Lower exposure
+                            Recommended
                           </Badge>
                         )}
                       </div>
                       <div className="flex gap-3 text-xs text-muted-foreground">
                         <span>{route.distance}</span>
                         <span>{route.duration}</span>
-                        <span className={cfg.text}>{cfg.label}</span>
+                        <span className={cn('font-medium', cfg.text)}>
+                          {cfg.label}
+                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -192,14 +184,14 @@ export default function RouteCheck() {
           </div>
 
           {/* External directions link */}
-          <Button asChild variant="outline" className="gap-1.5">
+          <Button asChild variant="outline" className="gap-2 shadow-sm">
             <a
               href={`https://www.google.com/maps/dir/${encodeURIComponent(data.origin)}/${encodeURIComponent(data.destination)}`}
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Navigation className="size-4" />
-              Open directions in Google Maps
+              <ExternalLink className="size-4" />
+              Open in Google Maps
             </a>
           </Button>
         </>
