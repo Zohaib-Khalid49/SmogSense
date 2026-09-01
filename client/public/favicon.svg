@@ -1,12 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
-  <!-- Shield shape -->
+  <!-- Shield outline -->
   <path d="M32 4 L56 14 V30 C56 46 44 56 32 60 C20 56 8 46 8 30 V14 Z" fill="#0f172a" stroke="#1e293b" stroke-width="1"/>
-  <!-- Inner gradient area -->
+  <!-- Inner shield -->
   <path d="M32 8 L52 16 V30 C52 44 42 52 32 56 C22 52 12 44 12 30 V16 Z" fill="#1e293b"/>
-  <!-- Wind/air waves -->
-  <path d="M18 26 Q24 23 30 26 Q36 29 42 26" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
-  <path d="M20 32 Q26 29 32 32 Q38 35 44 32" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
-  <path d="M18 38 Q24 35 30 38 Q36 41 42 38" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.9"/>
-  <!-- Small "S" hint -->
-  <text x="32" y="50" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="700" fill="#94a3b8" text-anchor="middle">S</text>
+  <!-- Air-quality bands: safe / caution / hazard -->
+  <path d="M17 25 Q24 21 31 25 Q38 29 45 25" stroke="#22c55e" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M17 32 Q24 28 31 32 Q38 36 45 32" stroke="#f59e0b" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <path d="M17 39 Q24 35 31 39 Q38 43 45 39" stroke="#ef4444" stroke-width="3" stroke-linecap="round" fill="none"/>
 </svg>

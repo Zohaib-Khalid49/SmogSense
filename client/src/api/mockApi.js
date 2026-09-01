@@ -1,11 +1,14 @@
 /**
  * Mock API layer for SmogSense frontend.
  *
- * This returns data in the EXACT shape the real backend (Person A) will return,
- * so switching to the live API later is a one-line change (swap this import for
- * a real fetch). Keep this shape in sync with the shared API contract.
+ * WARNING: These shapes are the CLIENT-SIDE shapes, NOT the raw backend shapes.
+ * The backend returns a different format (snake_case, envelope wrapper, etc.).
+ * The translation between backend and client shapes lives in transform.js.
  *
- * Hazard status response shape:
+ * Pages should import from api/client.js (not directly from here).
+ * client.js delegates to mockApi when VITE_USE_MOCKS=true.
+ *
+ * Client-side hazard status shape:
  * {
  *   band:            'safe' | 'caution' | 'hazard'
  *   pm25:            number   (µg/m³)

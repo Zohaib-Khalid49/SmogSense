@@ -11,9 +11,11 @@ server/node_modules/
 # ---- Environment / secrets ----
 .env
 .env.local
+.env.development
 .env.*.local
 **/.env
 **/.env.local
+**/.env.development
 
 # ---- Build output ----
 dist/
