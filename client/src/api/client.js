@@ -78,16 +78,12 @@ export async function listProfiles(userId) {
  */
 export async function createProfile(profile) {
   if (USE_MOCKS) {
-    // Mock: save to localStorage (existing behavior)
-    const { loadProfiles, saveProfiles } = await import('@/lib/storage')
-    const existing = loadProfiles()
-    const newProfile = {
+    // Mock: just return the shape — ProfileSetup already saves to localStorage
+    return {
       profileId: profile.category + '_' + Date.now(),
       subDetail: profile.subDetail || null,
       label: profile.name || profile.category,
     }
-    saveProfiles([...existing, newProfile])
-    return newProfile
   }
 
   const { data } = await http.post('/profiles', {
