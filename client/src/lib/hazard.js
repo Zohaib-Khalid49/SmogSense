@@ -34,7 +34,9 @@ export const BAND_CONFIG = {
 export const CONFIDENCE_LABEL = {
   high: 'High confidence',
   medium: 'Medium confidence',
+  low: 'Low confidence',
   model: 'Model-based estimate',
+  insufficient: 'Insufficient data',
 }
 
 /** Format an ISO timestamp into a short "Updated 7:04 AM" style string. */
