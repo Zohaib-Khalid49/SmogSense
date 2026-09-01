@@ -1,12 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Route as RouteIcon, Loader2, CloudSun } from 'lucide-react'
+import {
+  Route as RouteIcon,
+  Loader2,
+  CloudSun,
+  RefreshCw,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import HazardCard from '@/components/HazardCard'
-import { getHazardStatus } from '@/api/mockApi'
+import LocationHint from '@/components/LocationHint'
+import StatusMessage from '@/components/StatusMessage'
+import { getHazardStatus } from '@/api/client'
+import { getLocation } from '@/lib/geolocation'
+import { getUserMessage } from '@/api/apiError'
+import { loadProfiles } from '@/lib/storage'
+import { getProfileType } from '@/lib/profiles'
 
-// Dev-only toggle so we can preview every band state while building.
-const DEV_BANDS = ['safe', 'caution', 'hazard']
+const POLL_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
 
 function getGreeting() {
   const h = new Date().getHours()
@@ -16,58 +26,235 @@ function getGreeting() {
 }
 
 export default function Home() {
+  // Data states
   const [status, setStatus] = useState(null)
-  const [devBand, setDevBand] = useState('hazard')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [noData, setNoData] = useState(false)
 
-  // status is null while a fetch for the current band is in flight
-  const loading = status === null || status.band !== devBand
+  // Geolocation
+  const [geo, setGeo] = useState(null)
 
+  // Profile switcher
+  const [profiles, setProfiles] = useState(() => loadProfiles())
+  const [activeProfileIndex, setActiveProfileIndex] = useState(0)
+  const activeProfile = profiles[activeProfileIndex] ?? null
+  const activeCategory = activeProfile?.profileId ?? 'adult'
+
+  // Refs for cleanup
+  const pollTimer = useRef(null)
+  const abortRef = useRef(false)
+
+  // Reload profiles from localStorage (in case they changed on the setup page)
   useEffect(() => {
-    let active = true
-    getHazardStatus({ band: devBand }).then((data) => {
-      if (active) setStatus(data)
-    })
-    return () => {
-      active = false
+    function handleStorage() {
+      setProfiles(loadProfiles())
     }
-  }, [devBand])
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
+  // Also refresh profiles when the page becomes visible (navigated back from setup)
+  useEffect(() => {
+    function handleVisibilityProfiles() {
+      if (document.visibilityState === 'visible') {
+        setProfiles(loadProfiles())
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityProfiles)
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibilityProfiles)
+  }, [])
+
+  /**
+   * Fetch hazard status using current geo + active profile category.
+   */
+  const fetchStatus = useCallback(
+    async (currentGeo, profileCategory) => {
+      abortRef.current = false
+      setLoading(true)
+      setError(null)
+      setNoData(false)
+
+      try {
+        const result = await getHazardStatus({
+          lat: currentGeo?.lat,
+          lng: currentGeo?.lng,
+          profileCategory,
+        })
+
+        if (abortRef.current) return
+
+        if (result === null) {
+          setNoData(true)
+          setStatus(null)
+        } else {
+          setStatus(result)
+        }
+      } catch (err) {
+        if (abortRef.current) return
+        setError(err)
+      } finally {
+        if (!abortRef.current) setLoading(false)
+      }
+    },
+    [],
+  )
+
+  /**
+   * Full refresh: get location then fetch status.
+   */
+  const refresh = useCallback(async () => {
+    const loc = await getLocation()
+    setGeo(loc)
+    await fetchStatus(loc, activeCategory)
+  }, [activeCategory, fetchStatus])
+
+  // Initial load
+  useEffect(() => {
+    refresh() // eslint-disable-line react-hooks/set-state-in-effect
+    return () => {
+      abortRef.current = true
+    }
+  }, [refresh])
+
+  // Re-fetch when active profile changes
+  useEffect(() => {
+    if (!geo) return
+    fetchStatus(geo, activeCategory) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [activeCategory, geo, fetchStatus])
+
+  // Auto-poll every 15 minutes
+  useEffect(() => {
+    pollTimer.current = setInterval(() => {
+      if (geo) fetchStatus(geo, activeCategory)
+    }, POLL_INTERVAL_MS)
+
+    return () => clearInterval(pollTimer.current)
+  }, [geo, activeCategory, fetchStatus])
+
+  // Re-fetch when tab comes back into focus
+  useEffect(() => {
+    function handleVisibility() {
+      if (document.visibilityState === 'visible' && geo) {
+        fetchStatus(geo, activeCategory)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () =>
+      document.removeEventListener('visibilitychange', handleVisibility)
+  }, [geo, activeCategory, fetchStatus])
+
+  // Derived
   const bandKey = status?.band ?? 'safe'
+  const isFirstLoad = loading && status === null && error === null
 
   return (
     <div className="flex flex-col gap-5">
-      {/* Greeting */}
+      {/* Greeting + refresh button */}
       <header className="flex items-center gap-3">
         <div className="flex size-10 items-center justify-center rounded-full bg-primary/10">
           <CloudSun className="size-5 text-primary" />
         </div>
-        <div className="flex flex-col">
+        <div className="flex flex-1 flex-col">
           <h1 className="text-lg font-bold">{getGreeting()}</h1>
           <p className="text-sm text-muted-foreground">
             Is it safe to go outside right now?
           </p>
         </div>
+        <button
+          type="button"
+          onClick={refresh}
+          disabled={loading}
+          className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          aria-label="Refresh"
+        >
+          <RefreshCw
+            className={`size-4.5 ${loading ? 'animate-spin' : ''}`}
+          />
+        </button>
       </header>
 
-      {/* Hazard status with glow */}
-      <div className="relative">
-        {/* Colored glow behind the card that adapts to the current band */}
-        {!loading && (
+      {/* Profile switcher — horizontal pill bar */}
+      {profiles.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <span className="text-xs text-muted-foreground">Viewing for</span>
+          <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 scrollbar-none">
+            {profiles.map((p, i) => {
+              const type = getProfileType(p.profileId)
+              const isActive = activeProfileIndex === i
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActiveProfileIndex(i)}
+                  className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  {p.label || type?.label || p.profileId}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* No profiles hint */}
+      {profiles.length === 0 && (
+        <Link
+          to="/setup"
+          className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-sm text-primary transition-colors hover:bg-primary/10"
+        >
+          <span className="font-medium">Set up your profile</span>
+          <span className="text-xs text-muted-foreground">
+            — for personalized thresholds
+          </span>
+        </Link>
+      )}
+
+      {/* Location hint (shown when not using live GPS) */}
+      {geo && <LocationHint hint={geo.hint} source={geo.source} />}
+
+      {/* ── Status area: loading / error / noData / success ────────── */}
+
+      {isFirstLoad && (
+        <div className="flex min-h-56 items-center justify-center rounded-[var(--radius-card)] border border-border bg-card">
+          <Loader2 className="size-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {error && !isFirstLoad && (
+        <StatusMessage
+          type="error"
+          message={getUserMessage(error)}
+          hint="The data below may be outdated."
+          onRetry={refresh}
+        />
+      )}
+
+      {noData && !loading && (
+        <StatusMessage
+          type="noData"
+          message="No air quality readings yet."
+          hint="Data ingestion may not have run. Check back shortly."
+          onRetry={refresh}
+        />
+      )}
+
+      {status && !isFirstLoad && (
+        <div className="relative">
           <div
             className="pointer-events-none absolute inset-0 -z-10 translate-y-4 scale-95 rounded-[var(--radius-card)] opacity-30 blur-2xl"
             style={{ backgroundColor: `var(--${bandKey})` }}
             aria-hidden="true"
           />
-        )}
-
-        {loading ? (
-          <div className="flex min-h-56 items-center justify-center rounded-[var(--radius-card)] border border-border bg-card">
-            <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
           <HazardCard status={status} />
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Primary action */}
       <Button asChild size="lg" className="gap-2 shadow-sm">
@@ -76,26 +263,6 @@ export default function Home() {
           Plan a trip
         </Link>
       </Button>
-
-      {/* Dev-only band preview toggle (remove before production) */}
-      <div className="mt-2 rounded-lg border border-dashed border-border/60 bg-muted/30 p-3">
-        <p className="mb-2 text-xs font-medium text-muted-foreground">
-          Dev preview — switch band
-        </p>
-        <div className="flex gap-2">
-          {DEV_BANDS.map((b) => (
-            <Button
-              key={b}
-              size="sm"
-              variant={devBand === b ? 'default' : 'outline'}
-              onClick={() => setDevBand(b)}
-              className="flex-1 capitalize"
-            >
-              {b}
-            </Button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

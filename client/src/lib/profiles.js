@@ -21,6 +21,9 @@
  * @property {SubDetail[]|null} subDetails - optional refinements
  */
 
+/** Maximum profiles per device (frontend cap — backend should also enforce) */
+export const MAX_PROFILES = 5
+
 /** @type {ProfileType[]} */
 export const PROFILE_TYPES = [
   {
@@ -63,6 +66,7 @@ export const PROFILE_TYPES = [
     subDetails: [
       { id: 'asthma', label: 'Asthma' },
       { id: 'copd', label: 'COPD' },
+      { id: 'other', label: 'Other respiratory condition' },
     ],
   },
   {
