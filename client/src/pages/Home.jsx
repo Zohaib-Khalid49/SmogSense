@@ -5,7 +5,6 @@ import {
   Loader2,
   CloudSun,
   RefreshCw,
-  ChevronDown,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import HazardCard from '@/components/HazardCard'
@@ -176,26 +175,30 @@ export default function Home() {
         </button>
       </header>
 
-      {/* Profile switcher */}
+      {/* Profile switcher — horizontal pill bar */}
       {profiles.length > 0 && (
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2">
           <span className="text-xs text-muted-foreground">Viewing for</span>
-          <div className="relative">
-            <select
-              value={activeProfileIndex}
-              onChange={(e) => setActiveProfileIndex(Number(e.target.value))}
-              className="appearance-none rounded-lg border border-border bg-card py-1.5 pl-3 pr-8 text-sm font-medium shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {profiles.map((p, i) => {
-                const type = getProfileType(p.profileId)
-                return (
-                  <option key={i} value={i}>
-                    {p.label || type?.label || p.profileId}
-                  </option>
-                )
-              })}
-            </select>
-            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 scrollbar-none">
+            {profiles.map((p, i) => {
+              const type = getProfileType(p.profileId)
+              const isActive = activeProfileIndex === i
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setActiveProfileIndex(i)}
+                  className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'border border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  {p.label || type?.label || p.profileId}
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
