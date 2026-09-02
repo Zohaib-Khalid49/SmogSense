@@ -15,8 +15,16 @@
 import * as http from './httpClient'
 import * as transform from './transform'
 import * as mock from './mockApi'
+import { cacheResponse, getCachedResponse } from '@/lib/cache'
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'
+
+/**
+ * Check if an error is a network/offline error (eligible for cache fallback).
+ */
+function isNetworkError(err) {
+  return err?.code === 'NETWORK_ERROR' || err?.code === 'TIMEOUT'
+}
 
 // ─── Hazard Status ───────────────────────────────────────────────────
 
@@ -35,14 +43,30 @@ export async function getHazardStatus({ lat, lng, profileCategory, band } = {}) 
     return mock.getHazardStatus({ band })
   }
 
-  const { data, noData } = await http.get('/hazard-status', {
-    lat,
-    lng,
-    profile_category: profileCategory,
-  })
+  try {
+    const { data, noData } = await http.get('/hazard-status', {
+      lat,
+      lng,
+      profile_category: transform.toBackendCategory(profileCategory),
+    })
 
-  if (noData) return null
-  return transform.toHazardStatus(data)
+    if (noData) return null
+    const result = transform.toHazardStatus(data)
+
+    // Cache successful response for offline fallback
+    cacheResponse('hazard_status', result)
+
+    return result
+  } catch (err) {
+    // On network error, try cached response
+    if (isNetworkError(err)) {
+      const cached = getCachedResponse('hazard_status')
+      if (cached) {
+        return { ...cached.data, isStale: true, cachedAt: cached.cachedAt }
+      }
+    }
+    throw err
+  }
 }
 
 // ─── Profiles ────────────────────────────────────────────────────────
@@ -90,7 +114,7 @@ export async function createProfile(profile) {
     user_id: profile.userId,
     name: profile.name,
     age: profile.age,
-    category: profile.category,
+    category: transform.toBackendCategory(profile.category),
     sub_detail: profile.subDetail,
     alerts_enabled: profile.alertsEnabled ?? true,
   })
@@ -113,7 +137,7 @@ export async function updateProfile(profileId, updates) {
   const body = {}
   if (updates.name !== undefined) body.name = updates.name
   if (updates.age !== undefined) body.age = updates.age
-  if (updates.category !== undefined) body.category = updates.category
+  if (updates.category !== undefined) body.category = transform.toBackendCategory(updates.category)
   if (updates.subDetail !== undefined) body.sub_detail = updates.subDetail
   if (updates.alertsEnabled !== undefined) body.alerts_enabled = updates.alertsEnabled
 
@@ -139,16 +163,32 @@ export async function getRouteCheck(opts = {}) {
     return mock.getRouteComparison()
   }
 
-  const { data, noData } = await http.get('/route-check', {
-    origin_lat: opts.originLat,
-    origin_lng: opts.originLng,
-    dest_lat: opts.destLat,
-    dest_lng: opts.destLng,
-    profile_category: opts.profileCategory,
-  })
+  try {
+    const { data, noData } = await http.get('/route-check', {
+      origin_lat: opts.originLat,
+      origin_lng: opts.originLng,
+      dest_lat: opts.destLat,
+      dest_lng: opts.destLng,
+      profile_category: transform.toBackendCategory(opts.profileCategory),
+    })
 
-  if (noData) return null
-  return transform.toRouteComparison(data)
+    if (noData) return null
+    const result = transform.toRouteComparison(data)
+
+    // Cache successful response for offline fallback
+    cacheResponse('route_check', result)
+
+    return result
+  } catch (err) {
+    // On network error, try cached response
+    if (isNetworkError(err)) {
+      const cached = getCachedResponse('route_check')
+      if (cached) {
+        return { ...cached.data, isStale: true, cachedAt: cached.cachedAt }
+      }
+    }
+    throw err
+  }
 }
 
 // ─── Push alerts ─────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { Outlet } from 'react-router-dom'
 import BottomNav from '@/components/BottomNav'
+import OfflineBanner from '@/components/OfflineBanner'
 
 /**
  * Mobile-first app shell.
@@ -10,6 +11,9 @@ import BottomNav from '@/components/BottomNav'
 export default function AppLayout() {
   return (
     <div className="relative mx-auto flex h-svh w-full max-w-md flex-col overflow-hidden bg-background">
+      {/* Offline indicator banner — shown at the very top */}
+      <OfflineBanner />
+
       {/* Subtle gradient blob behind content for depth */}
       <div
         className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 size-80 rounded-full opacity-20 blur-3xl"

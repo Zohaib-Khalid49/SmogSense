@@ -136,6 +136,54 @@ export function toHazardStatus(raw) {
   }
 }
 
+// ─── Profile Category ─────────────────────────────────────────────────
+
+/**
+ * Client profile IDs differ from backend enums for two categories:
+ *
+ *   Client        | Backend
+ *   ──────────────|────────────────
+ *   pregnant      | pregnant_woman
+ *   respiratory   | asthma_copd
+ *
+ * All other categories (adult, child, elderly, outdoor_worker) are identical.
+ */
+const CATEGORY_TO_BACKEND = {
+  adult: 'adult',
+  child: 'child',
+  elderly: 'elderly',
+  pregnant: 'pregnant_woman',
+  respiratory: 'asthma_copd',
+  outdoor_worker: 'outdoor_worker',
+}
+
+const CATEGORY_FROM_BACKEND = {
+  adult: 'adult',
+  child: 'child',
+  elderly: 'elderly',
+  pregnant_woman: 'pregnant',
+  asthma_copd: 'respiratory',
+  outdoor_worker: 'outdoor_worker',
+}
+
+/**
+ * Convert a client profile category id to the backend enum value.
+ * @param {string} clientCategory
+ * @returns {string}
+ */
+export function toBackendCategory(clientCategory) {
+  return CATEGORY_TO_BACKEND[clientCategory] ?? clientCategory
+}
+
+/**
+ * Convert a backend profile category to the client id.
+ * @param {string} backendCategory
+ * @returns {string}
+ */
+function fromBackendCategory(backendCategory) {
+  return CATEGORY_FROM_BACKEND[backendCategory] ?? backendCategory
+}
+
 // ─── Profile ─────────────────────────────────────────────────────────
 
 /**
@@ -152,7 +200,7 @@ export function toProfile(raw) {
     userId: raw.user_id || '',
     name: raw.name || '',
     age: raw.age ?? null,
-    profileCategory: raw.category || 'adult',
+    profileCategory: fromBackendCategory(raw.category || 'adult'),
     alertsEnabled: raw.alerts_enabled !== false,
     subDetail: raw.sub_detail ?? null,
     label: raw.name || '',

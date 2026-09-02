@@ -4,6 +4,7 @@ import {
   MapPinOff,
   RefreshCw,
   AlertCircle,
+  AlertTriangle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -13,7 +14,7 @@ import { cn } from '@/lib/utils'
  * Used across screens whenever the backend returns an error or no data.
  *
  * @param {Object} props
- * @param {'error'|'noData'|'location'|'info'} [props.type='error']
+ * @param {'error'|'noData'|'location'|'info'|'warning'} [props.type='error']
  * @param {string} props.message - the user-facing message
  * @param {string} [props.hint] - optional secondary text
  * @param {() => void} [props.onRetry] - if provided, shows a retry button
@@ -25,6 +26,7 @@ const ICON_MAP = {
   noData: CloudOff,
   location: MapPinOff,
   info: AlertCircle,
+  warning: AlertTriangle,
 }
 
 const BG_MAP = {
@@ -32,6 +34,7 @@ const BG_MAP = {
   noData: 'bg-muted/50 border-border',
   location: 'bg-caution/5 border-caution/20',
   info: 'bg-primary/5 border-primary/20',
+  warning: 'bg-amber-500/5 border-amber-500/20',
 }
 
 const ICON_COLOR_MAP = {
@@ -39,6 +42,7 @@ const ICON_COLOR_MAP = {
   noData: 'text-muted-foreground',
   location: 'text-caution',
   info: 'text-primary',
+  warning: 'text-amber-600',
 }
 
 export default function StatusMessage({

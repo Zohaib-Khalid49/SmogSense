@@ -10,11 +10,14 @@ import { Button } from '@/components/ui/button'
 import HazardCard from '@/components/HazardCard'
 import LocationHint from '@/components/LocationHint'
 import StatusMessage from '@/components/StatusMessage'
-import { getHazardStatus } from '@/api/client'
+import { getHazardStatus, listProfiles } from '@/api/client'
 import { getLocation } from '@/lib/geolocation'
+import { getUserId } from '@/lib/identity'
 import { getUserMessage } from '@/api/apiError'
 import { loadProfiles } from '@/lib/storage'
 import { getProfileType } from '@/lib/profiles'
+import NotificationPermission from '@/components/NotificationPermission'
+import { formatCachedTime } from '@/lib/cache'
 
 const POLL_INTERVAL_MS = 15 * 60 * 1000 // 15 minutes
 
@@ -36,14 +39,48 @@ export default function Home() {
   const [geo, setGeo] = useState(null)
 
   // Profile switcher
-  const [profiles, setProfiles] = useState(() => loadProfiles())
+  const [profiles, setProfiles] = useState([])
   const [activeProfileIndex, setActiveProfileIndex] = useState(0)
   const activeProfile = profiles[activeProfileIndex] ?? null
-  const activeCategory = activeProfile?.profileId ?? 'adult'
+
+  // profileCategory is the category field (e.g., 'child')
+  // profileId in mock mode is like "adult_1788348752180"; in live mode it's a MongoDB ID
+  // Extract the category prefix from mock-mode profileIds as a fallback
+  function extractCategory(profile) {
+    if (profile?.profileCategory) return profile.profileCategory
+    // Mock-mode profileId format: "category_timestamp"
+    const id = profile?.profileId || ''
+    const match = id.match(/^(adult|child|elderly|pregnant|pregnant_woman|asthma|asthma_copd|outdoor_worker|respiratory)/)
+    if (match) return match[1]
+    return 'adult'
+  }
+  const activeCategory = extractCategory(activeProfile)
 
   // Refs for cleanup
   const pollTimer = useRef(null)
   const abortRef = useRef(false)
+
+  // Load profiles: try backend first, fall back to localStorage
+  useEffect(() => {
+    let cancelled = false
+    async function fetchProfiles() {
+      try {
+        const userId = getUserId()
+        const backendProfiles = await listProfiles(userId)
+        if (!cancelled && backendProfiles.length > 0) {
+          setProfiles(backendProfiles)
+          return
+        }
+      } catch {
+        // Backend unavailable or failed — fall back to localStorage
+      }
+      if (!cancelled) {
+        setProfiles(loadProfiles())
+      }
+    }
+    fetchProfiles()
+    return () => { cancelled = true }
+  }, [])
 
   // Reload profiles from localStorage (in case they changed on the setup page)
   useEffect(() => {
@@ -181,7 +218,8 @@ export default function Home() {
           <span className="text-xs text-muted-foreground">Viewing for</span>
           <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1 scrollbar-none">
             {profiles.map((p, i) => {
-              const type = getProfileType(p.profileId)
+              const categoryId = extractCategory(p)
+              const type = getProfileType(categoryId)
               const isActive = activeProfileIndex === i
               return (
                 <button
@@ -214,6 +252,11 @@ export default function Home() {
             — for personalized thresholds
           </span>
         </Link>
+      )}
+
+      {/* Notification permission prompt (Phase 4) */}
+      {profiles.length > 0 && (
+        <NotificationPermission profiles={profiles} />
       )}
 
       {/* Location hint (shown when not using live GPS) */}
@@ -252,6 +295,15 @@ export default function Home() {
             style={{ backgroundColor: `var(--${bandKey})` }}
             aria-hidden="true"
           />
+          {status.isStale && (
+            <StatusMessage
+              type="warning"
+              message="Showing cached data"
+              hint={`Last updated ${formatCachedTime(status.cachedAt)} — you may be offline`}
+              onRetry={refresh}
+              className="mb-3"
+            />
+          )}
           <HazardCard status={status} />
         </div>
       )}

@@ -1,12 +1,11 @@
 # ---- Personal / planning docs (local only, do NOT push) ----
 Cosmetic Guy.md
-Backend-Client-Integration.md
+wiki/Backend-Client-Integration.md
 SmogSense_Application_Specification*.md
+wiki/
 
 # ---- Dependencies ----
 node_modules/
-client/node_modules/
-server/node_modules/
 
 # ---- Environment / secrets ----
 .env
@@ -16,25 +15,36 @@ server/node_modules/
 **/.env
 **/.env.local
 **/.env.development
+backend/private/
+*service-account*.json
+.firebase/
 
 # ---- Build output ----
 dist/
+dist-ssr/
+dev-dist/
 build/
-client/dist/
-client/build/
-server/dist/
 
 # ---- Logs ----
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
 # ---- Editor / OS ----
-.vscode/
+**/.vscode/*
+!**/.vscode/extensions.json
 .idea/
 .DS_Store
 Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # ---- Misc ----
 *.local

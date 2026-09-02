@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Check } from 'lucide-react'
+import { ChevronRight, Check, Loader2, WifiOff } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import ProfileCard from '@/components/ProfileCard'
@@ -8,7 +8,7 @@ import SubDetailPicker from '@/components/SubDetailPicker'
 import ProfileList from '@/components/ProfileList'
 import { PROFILE_TYPES, getProfileType, MAX_PROFILES } from '@/lib/profiles'
 import { loadProfiles, saveProfiles } from '@/lib/storage'
-import { createProfile } from '@/api/client'
+import { createProfile, listProfiles } from '@/api/client'
 import { getUserId } from '@/lib/identity'
 
 /**
@@ -26,11 +26,50 @@ export default function ProfileSetup() {
   const [selectedId, setSelectedId] = useState(null)
   const [subDetail, setSubDetail] = useState(null)
   const [label, setLabel] = useState('')
-  const [profiles, setProfiles] = useState(() => loadProfiles())
+  const [profiles, setProfiles] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState(null)
+  const [isOnline, setIsOnline] = useState(
+    () => typeof navigator !== 'undefined' ? navigator.onLine : true
+  )
 
   const selectedType = getProfileType(selectedId)
   const hasSubDetails = selectedType?.subDetails != null
   const canAddMore = profiles.length < MAX_PROFILES
+
+  // Track online/offline status
+  useEffect(() => {
+    function handleOnline() { setIsOnline(true) }
+    function handleOffline() { setIsOnline(false) }
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  // Load existing profiles from backend (or localStorage fallback)
+  useEffect(() => {
+    let cancelled = false
+    async function fetchProfiles() {
+      try {
+        const userId = getUserId()
+        const backendProfiles = await listProfiles(userId)
+        if (!cancelled && backendProfiles.length > 0) {
+          setProfiles(backendProfiles)
+          return
+        }
+      } catch {
+        // Fall back to localStorage
+      }
+      if (!cancelled) {
+        setProfiles(loadProfiles())
+      }
+    }
+    fetchProfiles()
+    return () => { cancelled = true }
+  }, [])
 
   // --- Handlers ---
 
@@ -57,30 +96,53 @@ export default function ProfileSetup() {
     setStep('label')
   }
 
-  function addProfile() {
+  async function addProfile() {
+    // Block profile creation when offline
+    if (!isOnline) {
+      setError('Profile editing requires an internet connection.')
+      return
+    }
+
     const profileLabel = label.trim() || selectedType?.label || ''
-    const newProfile = {
+
+    // Build the new profile object for localStorage
+    const localStorageProfile = {
       profileId: selectedId,
       subDetail,
       label: profileLabel,
     }
-    // Save to localStorage (always — for offline + fast reads)
-    const updated = [...profiles, newProfile]
-    setProfiles(updated)
-    saveProfiles(updated)
 
-    // Also call the API client (in live mode this hits the backend)
-    createProfile({
-      userId: getUserId(),
-      name: profileLabel,
-      category: selectedId,
-      subDetail,
-    }).catch(() => {
-      // Silently fail — localStorage is the source of truth for now
-    })
+    setSaving(true)
+    setError(null)
 
-    resetForm()
-    setStep('done')
+    try {
+      // Call the API (in live mode this hits the backend)
+      const created = await createProfile({
+        userId: getUserId(),
+        name: profileLabel,
+        category: selectedId,
+        subDetail,
+      })
+
+      // If backend returned a profile, use its data (has real profileId)
+      const profileToAdd = created ?? localStorageProfile
+      const updated = [...profiles, profileToAdd]
+      setProfiles(updated)
+      saveProfiles(updated) // Keep localStorage in sync
+
+      resetForm()
+      setStep('done')
+    } catch {
+      // On failure, still save to localStorage as fallback
+      const updated = [...profiles, localStorageProfile]
+      setProfiles(updated)
+      saveProfiles(updated)
+      setError('Could not sync with server. Profile saved locally.')
+      resetForm()
+      setStep('done')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function resetForm() {
@@ -95,9 +157,19 @@ export default function ProfileSetup() {
   }
 
   function handleRemoveProfile(index) {
+    const profile = profiles[index]
     const updated = profiles.filter((_, i) => i !== index)
     setProfiles(updated)
     saveProfiles(updated)
+
+    // In live mode, disable alerts instead of deleting
+    if (profile?.profileId && profile?.userId) {
+      // Backend profile — call updateProfile to disable alerts
+      import('@/api/client').then(({ updateProfile }) => {
+        updateProfile(profile.profileId, { alertsEnabled: false }).catch(() => {})
+      })
+    }
+
     if (updated.length === 0) {
       setStep('select')
     }
@@ -155,11 +227,12 @@ export default function ProfileSetup() {
 
           <Button
             onClick={handleNext}
-            disabled={!selectedId}
+            disabled={!selectedId || !isOnline}
             className="gap-1.5"
           >
-            Continue
-            <ChevronRight className="size-4" />
+            {!isOnline && <WifiOff className="size-4" />}
+            {isOnline ? 'Continue' : 'Offline — cannot add profiles'}
+            {isOnline && <ChevronRight className="size-4" />}
           </Button>
         </>
       )}
@@ -218,8 +291,12 @@ export default function ProfileSetup() {
             </p>
           </div>
 
-          <Button onClick={handleNext} className="gap-1.5">
-            <Check className="size-4" />
+          <Button onClick={handleNext} className="gap-1.5" disabled={saving}>
+            {saving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Check className="size-4" />
+            )}
             Save profile
           </Button>
         </>
@@ -228,6 +305,11 @@ export default function ProfileSetup() {
       {/* Step: done — show list, add another, or continue to Home */}
       {step === 'done' && (
         <>
+          {error && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              {error}
+            </div>
+          )}
           <ProfileList
             profiles={profiles}
             onAdd={canAddMore ? handleAddAnother : undefined}

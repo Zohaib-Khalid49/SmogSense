@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
   BellOff,
@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { BAND_CONFIG, CONFIDENCE_LABEL, formatUpdatedAt } from '@/lib/hazard'
-import { getAlertDetail } from '@/api/mockApi'
+import { getAlertDetail, getHazardStatus } from '@/api/client'
+import { getAlertPayload, onForegroundMessage, storeAlertPayload } from '@/lib/push'
 
 const BAND_GRADIENT = {
   safe: 'from-green-600 to-emerald-500',
@@ -19,26 +20,140 @@ const BAND_GRADIENT = {
   hazard: 'from-red-600 to-rose-500',
 }
 
+/**
+ * Map a push payload severity/band to the client-side band string.
+ */
+function bandFromPayload(data) {
+  // Backend sends hazard_band in data payload
+  if (data.band) return data.band
+  if (data.severity === 'danger') return 'hazard'
+  if (data.severity === 'warning') return 'hazard'
+  if (data.severity === 'caution') return 'caution'
+  return 'hazard' // default for alerts
+}
+
+/**
+ * Build a human-readable reason string from the push payload.
+ */
+function reasonFromPayload(data) {
+  const bandLabel = bandFromPayload(data)
+  return `Air quality has worsened to ${bandLabel} level for one or more of your profiles.`
+}
+
 export default function AlertDetail() {
   const [alert, setAlert] = useState(null)
   const [snoozed, setSnoozed] = useState(false)
+  const [noAlert, setNoAlert] = useState(false)
 
-  const loading = alert === null
+  const loading = alert === null && !noAlert
 
+  /**
+   * Enrich a push payload with live hazard data to build the full alert shape.
+   */
+  const enrichPayload = useCallback(async (payloadData) => {
+    const base = {
+      id: payloadData.id || 'push_' + Date.now(),
+      reason: reasonFromPayload(payloadData),
+      band: bandFromPayload(payloadData),
+      triggeredAt: payloadData.timestamp || new Date().toISOString(),
+      type: payloadData.type === 'daily_summary' ? 'scheduled' : 'threshold_change',
+      // Defaults that will be overwritten by live data
+      pm25: payloadData.pm25 ? Number(payloadData.pm25) : null,
+      confidence: 'medium',
+      recommendation: BAND_CONFIG[bandFromPayload(payloadData)]?.tagline || 'Check current conditions.',
+      location: 'Lahore',
+    }
+
+    // Try to get fresh hazard data for richer display
+    try {
+      const liveStatus = await getHazardStatus({})
+      if (liveStatus) {
+        return {
+          ...base,
+          band: liveStatus.band || base.band,
+          pm25: liveStatus.pm25 ?? base.pm25,
+          confidence: liveStatus.confidence ?? base.confidence,
+          recommendation: liveStatus.recommendation || base.recommendation,
+          location: liveStatus.location || base.location,
+        }
+      }
+    } catch {
+      // Live data unavailable — use payload defaults
+    }
+
+    return base
+  }, [])
+
+  // Load alert data: sessionStorage payload first, then mock API
   useEffect(() => {
     let active = true
-    getAlertDetail().then((data) => {
-      if (active) setAlert(data)
-    })
-    return () => {
-      active = false
+
+    async function loadAlert() {
+      // 1. Check for push payload from notification tap (sessionStorage)
+      const payload = getAlertPayload()
+      if (payload) {
+        const enriched = await enrichPayload(payload)
+        if (active) setAlert(enriched)
+        return
+      }
+
+      // 2. Fall back to mock API (or null in live mode)
+      const data = await getAlertDetail()
+      if (!active) return
+      if (data === null) {
+        setNoAlert(true)
+      } else {
+        setAlert(data)
+      }
     }
-  }, [])
+
+    loadAlert()
+    return () => { active = false }
+  }, [enrichPayload])
+
+  // Listen for foreground push messages (app is open when push arrives)
+  useEffect(() => {
+    const unsubscribe = onForegroundMessage((payload) => {
+      const data = payload.data || {}
+      if (data.type === 'hazard_alert' || data.type === 'daily_summary') {
+        // Store for AlertDetail to pick up, then enrich and display
+        storeAlertPayload(data)
+        enrichPayload(data).then((enriched) => {
+          setAlert(enriched)
+          setNoAlert(false)
+        })
+      }
+    })
+    return unsubscribe
+  }, [enrichPayload])
 
   if (loading) {
     return (
       <div className="flex min-h-[60svh] items-center justify-center">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  // In live mode, alerts come via push notification payload only
+  if (noAlert) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+        <div className="flex size-12 items-center justify-center rounded-full bg-muted">
+          <BellOff className="size-5 text-muted-foreground" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">No alerts yet</h2>
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Alerts are delivered as push notifications when air quality worsens for your profiles.
+          </p>
+        </div>
+        <Button asChild className="gap-2 shadow-sm">
+          <Link to="/">
+            <RouteIcon className="size-4" />
+            Back to dashboard
+          </Link>
+        </Button>
       </div>
     )
   }

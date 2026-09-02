@@ -11,7 +11,12 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      devOptions: { enabled: false },
+      srcDir: 'src',
+      filename: 'sw.js',
+      devOptions: {
+        enabled: true,
+        navigateFallback: 'index.html',
+      },
       manifest: {
         name: 'SmogSense',
         short_name: 'SmogSense',
