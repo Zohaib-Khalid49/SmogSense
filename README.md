@@ -29,7 +29,7 @@ There are three ways to run SmogSense, depending on how much of the stack you ne
 No backend, no MongoDB, no Firebase. The client runs with canned responses — great for UI development.
 
 ```bash
-git clone https://github.com/YOUR_USER/SmogSense.git
+git clone https://github.com/Zohaib-Khalid49/SmogSense.git
 cd SmogSense/client
 npm install
 
@@ -128,6 +128,8 @@ VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 VITE_FIREBASE_VAPID_KEY=BNbx...
 ```
 
+> These values live in `.env.development`, which only `npm run dev` loads. For production builds, mirror them into `client/.env.production.local` — see [Production Builds](#production-builds).
+
 **5. Restart both servers** to pick up the new config.
 
 > **Important quoting rules:**
@@ -151,6 +153,39 @@ npm run ingest
 ```
 
 This fetches current air quality data from OpenAQ and Open-Meteo. After ingestion, the client will show real hazard data. Ingestion runs automatically every hour via the built-in scheduler.
+
+## Production Builds
+
+```bash
+cd client
+npm run build     # → outputs to client/dist/
+npm run preview   # serve the built bundle locally → http://localhost:4173
+```
+
+Vite loads env files **by mode** — the dev server and the build do not share config:
+
+| Command | Vite mode | Env file read |
+|---------|-----------|---------------|
+| `npm run dev` | development | `client/.env.development` |
+| `npm run build` | production | `client/.env.production.local` |
+
+`.env.development` is **not** read by `npm run build`. Before building, create `client/.env.production.local` (gitignored via `*.local`) with the same unquoted values — otherwise the bundle ships with no API base URL and no Firebase config, and push notifications silently disable themselves:
+
+```bash
+# client/.env.production.local
+VITE_API_BASE_URL=http://localhost:3000
+VITE_USE_MOCKS=false
+VITE_FIREBASE_API_KEY=AIza...
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
+VITE_FIREBASE_APP_ID=1:123456789:web:abc123
+VITE_FIREBASE_VAPID_KEY=BNbx...
+```
+
+**Deploying to a host** (Vercel, Netlify, ...)? Skip the local file — set the `VITE_*` variables in the host's environment settings and they are injected at build time. After deploying, add the live domain to the Firebase API key's HTTP referrer restrictions (see [Security](#security)).
+
+> `dist/` is gitignored build output — deploy it to a host, never commit it.
 
 ## Environment Variables
 
@@ -177,12 +212,19 @@ This fetches current air quality data from OpenAQ and Open-Meteo. After ingestio
 | `VITE_FIREBASE_API_KEY` | For push | _(empty)_ | Firebase Web API key |
 | `VITE_FIREBASE_AUTH_DOMAIN` | For push | _(empty)_ | Firebase auth domain |
 | `VITE_FIREBASE_PROJECT_ID` | For push | _(empty)_ | Firebase project ID |
-| `VITE_FIREBASE_STORAGE_BUCKET` | For push | _(empty)_ | Firebase storage bucket |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | For push | _(empty)_ | Firebase messaging sender ID |
 | `VITE_FIREBASE_APP_ID` | For push | _(empty)_ | Firebase app ID |
 | `VITE_FIREBASE_VAPID_KEY` | For push | _(empty)_ | Firebase VAPID key for web push |
 
 > Firebase variables are only required when push notifications are enabled. The app functions without them (hazard dashboard, profiles, route check all work independently).
+>
+> **Which file gets loaded:** `npm run dev` reads `.env.development`; `npm run build` reads `.env.production.local` (see [Production Builds](#production-builds)). Neither file is committed — both are gitignored.
+
+## Security
+
+- **Secrets never enter git.** All `.env*` files, `client/src/sw.js` (it embeds Firebase config), `backend/private/`, and service-account JSON files are gitignored. Never force-add them.
+- **Restrict the Firebase Web API key.** Google Cloud Console → APIs & Services → Credentials → your key: limit *Application restrictions* to HTTP referrers (`http://localhost:5173/*` for dev, plus your deployed domain) and *API restrictions* to the Firebase APIs the app needs (Cloud Messaging, FCM Registration, Installations). The web API key is public by design, but restrictions cap the damage if it leaks.
+- **If a key leaks:** rotate it — delete the old key in Google Cloud Console, create and restrict a new one, update `client/.env.development`, `client/.env.production.local`, and `client/src/sw.js`, then rebuild. Purge it from git history with `git filter-repo`. Removing the file from the repo alone is not enough; the key itself must be revoked.
 
 ## Scheduled Jobs
 
@@ -232,6 +274,8 @@ The client caches API responses in `localStorage` for resilience when connectivi
 5. **No authentication:** Endpoints are currently open. JWT or API-key auth should be added for production.
 
 6. **Firebase-only push:** Push notifications use Firebase Cloud Messaging exclusively. Other providers (APNs, web push) would require adapter additions.
+
+7. **Background push is dev-only:** `vite-plugin-pwa` runs in `generateSW` mode, so the production `dist/sw.js` is a plain workbox precache worker. The custom `client/src/sw.js` — whose Firebase handler shows notifications when the app is closed — is only active during `npm run dev`. Switching to `injectManifest` mode would include it in production builds.
 
 ## Project Structure
 
