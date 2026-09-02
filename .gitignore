@@ -3,6 +3,7 @@ Cosmetic Guy.md
 wiki/Backend-Client-Integration.md
 SmogSense_Application_Specification*.md
 wiki/
+tests/
 
 # ---- Dependencies ----
 node_modules/
