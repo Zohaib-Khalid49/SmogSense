@@ -27,6 +27,9 @@ dist-ssr/
 dev-dist/
 build/
 
+# ---- Service worker (contains Firebase config) ----
+client/src/sw.js
+
 # ---- Logs ----
 logs/
 *.log

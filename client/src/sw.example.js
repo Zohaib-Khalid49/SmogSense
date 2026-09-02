@@ -1,13 +1,16 @@
 /* eslint-disable no-undef */
 /**
- * SmogSense Service Worker
- * ────────────────────────
- * Combines PWA precaching (vite-plugin-pwa) with Firebase Messaging
- * background notification handling.
+ * SmogSense Service Worker — TEMPLATE
+ * ─────────────────────────────────────
+ * Copy this file to sw.js and fill in your Firebase project config.
  *
- * IMPORTANT: The Firebase config below MUST match the VITE_FIREBASE_*
- * values in client/.env.development (or .env.production). The config
- * is public/non-secret — it's embedded in the web app bundle anyway.
+ *   cp client/src/sw.example.js client/src/sw.js
+ *
+ * Get your config from:
+ *   Firebase Console → Project Settings → General → Your apps → Web app
+ *
+ * The config is public/non-secret (embedded in the web bundle anyway).
+ * Keep it out of Git — sw.js is in .gitignore.
  */
 
 // ── 1. PWA Precaching (injected by vite-plugin-pwa at build time) ─────
@@ -23,13 +26,13 @@ if (self.__WB_MANIFEST) {
 importScripts('https://www.googleapis.com/firebasejs/10.14.0/firebase-app-compat.js')
 importScripts('https://www.googleapis.com/firebasejs/10.14.0/firebase-messaging-compat.js')
 
-// ⚠️  Fill these in with your Firebase project config (same as VITE_FIREBASE_* env vars)
+// ⚠️  Replace these with YOUR Firebase project config
 firebase.initializeApp({
-  apiKey: 'REDACTED_FIREBASE_WEB_API_KEY',
-  authDomain: 'smogsense-notification.firebaseapp.com',
-  projectId: 'smogsense-notification',
-  messagingSenderId: '651388537426',
-  appId: '1:651388537426:web:c5b1f1c95dc07c5836ad8b',
+  apiKey: 'YOUR_FIREBASE_API_KEY',
+  authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
+  projectId: 'YOUR_PROJECT_ID',
+  messagingSenderId: 'YOUR_SENDER_ID',
+  appId: 'YOUR_APP_ID',
 })
 
 const messaging = firebase.messaging()
