@@ -183,7 +183,7 @@ VITE_FIREBASE_APP_ID=1:123456789:web:abc123
 VITE_FIREBASE_VAPID_KEY=BNbx...
 ```
 
-**Deploying to a host** (Vercel, Netlify, ...)? Skip the local file — set the `VITE_*` variables in the host's environment settings and they are injected at build time. After deploying, add the live domain to the Firebase API key's HTTP referrer restrictions (see [Security](#security)).
+**Deploying to a host** (Vercel, Netlify, ...)? Skip the local file — set the `VITE_*` variables in the host's environment settings and they are injected at build time. After deploying, add the live domain to the Firebase API key's HTTP referrer restrictions in Google Cloud Console.
 
 > `dist/` is gitignored build output — deploy it to a host, never commit it.
 
@@ -219,12 +219,6 @@ VITE_FIREBASE_VAPID_KEY=BNbx...
 > Firebase variables are only required when push notifications are enabled. The app functions without them (hazard dashboard, profiles, route check all work independently).
 >
 > **Which file gets loaded:** `npm run dev` reads `.env.development`; `npm run build` reads `.env.production.local` (see [Production Builds](#production-builds)). Neither file is committed — both are gitignored.
-
-## Security
-
-- **Secrets never enter git.** All `.env*` files, `client/src/sw.js` (it embeds Firebase config), `backend/private/`, and service-account JSON files are gitignored. Never force-add them.
-- **Restrict the Firebase Web API key.** Google Cloud Console → APIs & Services → Credentials → your key: limit *Application restrictions* to HTTP referrers (`http://localhost:5173/*` for dev, plus your deployed domain) and *API restrictions* to the Firebase APIs the app needs (Cloud Messaging, FCM Registration, Installations). The web API key is public by design, but restrictions cap the damage if it leaks.
-- **If a key leaks:** rotate it — delete the old key in Google Cloud Console, create and restrict a new one, update `client/.env.development`, `client/.env.production.local`, and `client/src/sw.js`, then rebuild. Purge it from git history with `git filter-repo`. Removing the file from the repo alone is not enough; the key itself must be revoked.
 
 ## Scheduled Jobs
 
