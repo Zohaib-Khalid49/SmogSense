@@ -3,7 +3,8 @@ Cosmetic Guy.md
 wiki/Backend-Client-Integration.md
 SmogSense_Application_Specification*.md
 wiki/
-tests/
+**/tests/
+**/vitest.config.js
 
 # ---- Dependencies ----
 node_modules/
