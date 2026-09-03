@@ -144,10 +144,11 @@ export async function getFcmToken(swRegistration) {
  * @param {(newToken: string) => void} callback - called with current token
  * @returns {() => void} cleanup function (no-op, Firebase manages internally)
  */
-export function onFcmTokenRefresh(callback) {
+export function onFcmTokenRefresh() {
   // Firebase SDK v9+ auto-refreshes tokens internally.
   // Call getToken() again anytime you need the current token.
-  // This is a no-op for compatibility.
+  // This is a no-op for compatibility. (Accepts a callback arg for
+  // backward compatibility; it is intentionally unused.)
   return () => {}
 }
 
