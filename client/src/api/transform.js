@@ -220,30 +220,98 @@ export function toProfiles(rawList) {
 /**
  * Transform a backend /route-check response into the client shape.
  *
- * Adapts the band and confidence fields on each route entry,
- * and passes through the rest.
+ * Backend shape (inside envelope.data):
+ * {
+ *   primary_route:   { band, pm25, confidence, recommendation_key },
+ *   alternate_route: { band, pm25, confidence, recommendation_key },
+ *   meaningful_difference: boolean,
+ *   reliable: boolean,
+ *   advice: string,
+ * }
+ *
+ * Client shape (what RouteCheck expects):
+ * {
+ *   routes: [{ id, label, pm25, band, confidence, distance, duration, coords }],
+ *   recommended: id,
+ *   meaningfulDifference: boolean,
+ *   reliable: boolean,
+ *   advice: string,
+ * }
+ *
+ * The backend returns two point readings (origin + destination), NOT drawn
+ * routes — so there are no polyline coords, distances, or durations.
  */
 export function toRouteComparison(raw) {
   if (!raw) return null
 
-  const routes = Array.isArray(raw.routes)
-    ? raw.routes.map((r) => ({
-        id: r.id || r.route_id || '',
-        label: r.label || r.name || '',
-        pm25: r.pm25 ?? 0,
-        band: toBand(r.hazard_band ?? r.band),
-        distance: r.distance || '',
-        duration: r.duration || '',
-        confidence: toConfidence(r.confidence_level ?? r.confidence),
-        coords: r.coords || [],
-      }))
-    : []
+  // Support both the real backend shape (primary_route/alternate_route)
+  // and the legacy mock shape (routes[]), so mock mode still works.
+  if (Array.isArray(raw.routes)) {
+    const routes = raw.routes.map((r) => ({
+      id: r.id || r.route_id || '',
+      label: r.label || r.name || '',
+      pm25: r.pm25 ?? 0,
+      band: toBand(r.hazard_band ?? r.band),
+      distance: r.distance || '',
+      duration: r.duration || '',
+      confidence: toConfidence(r.confidence_level ?? r.confidence),
+      coords: r.coords || [],
+    }))
+    return {
+      origin: raw.origin || '',
+      destination: raw.destination || '',
+      routes,
+      recommended: raw.recommended || (routes[1]?.id ?? ''),
+      meaningfulDifference: raw.meaningful_difference ?? null,
+      reliable: raw.reliable ?? true,
+      advice: raw.advice ?? '',
+    }
+  }
+
+  // Real backend shape
+  const primary = raw.primary_route
+  const alternate = raw.alternate_route
+  if (!primary && !alternate) return null
+
+  const routes = []
+  if (primary) {
+    routes.push({
+      id: 'origin',
+      label: 'Your location',
+      pm25: Math.round(primary.pm25 ?? 0),
+      band: toBand(primary.band),
+      confidence: toConfidence(primary.confidence),
+      distance: '',
+      duration: '',
+      coords: [],
+    })
+  }
+  if (alternate) {
+    routes.push({
+      id: 'destination',
+      label: 'Destination',
+      pm25: Math.round(alternate.pm25 ?? 0),
+      band: toBand(alternate.confidence === 'insufficient' ? alternate.band : alternate.band),
+      confidence: toConfidence(alternate.confidence),
+      distance: '',
+      duration: '',
+      coords: [],
+    })
+  }
+
+  // Recommend the lower-PM2.5 route
+  let recommended = ''
+  if (routes.length === 2) {
+    recommended = routes[0].pm25 <= routes[1].pm25 ? routes[0].id : routes[1].id
+  } else if (routes.length === 1) {
+    recommended = routes[0].id
+  }
 
   return {
-    origin: raw.origin || '',
-    destination: raw.destination || '',
     routes,
-    recommended: raw.recommended || (routes[1]?.id ?? ''),
+    recommended,
     meaningfulDifference: raw.meaningful_difference ?? null,
+    reliable: raw.reliable ?? true,
+    advice: raw.advice ?? '',
   }
 }
