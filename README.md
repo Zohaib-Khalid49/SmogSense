@@ -18,7 +18,7 @@ SmogSense is a coordinate-based smog decision-support web app for Lahore, Pakist
 | Path | Description |
 |------|-------------|
 | `backend/` | Node.js + Express API: OpenAQ/Open-Meteo ingestion, MongoDB persistence, hazard thresholds, Groq LLM recommendations, Firebase push alerts |
-| `client/` | React 19 + Vite mobile-first PWA — fully integrated with the backend API, Firebase push notifications, and offline caching |
+| `client/` | React 19 + Vite mobile-first PWA — fully integrated with the backend API, Firebase push notifications, offline caching, and Lahore-biased place search (Nominatim) |
 
 ## Quick Start
 
@@ -145,7 +145,7 @@ npm test     # 143 tests, all passing
 
 ### First Data Load
 
-After starting the backend, the database is empty. Trigger a manual ingestion to fetch PM2.5 readings:
+On startup the backend runs one ingestion automatically unless ingestion has already run since the last hourly slot, so a newly started instance picks up the newest available data instead of waiting for the top of the hour (see [Scheduled Jobs](#scheduled-jobs)). To force a manual ingestion at any time:
 
 ```bash
 cd backend
@@ -195,9 +195,11 @@ VITE_FIREBASE_VAPID_KEY=BNbx...
 | `NODE_ENV` | No | `development` | Environment mode |
 | `MONGODB_URI` | No | `mongodb://localhost:27017/smogsense` | MongoDB connection string |
 | `MONGODB_DB_NAME` | No | `smogsense` | Database name |
+| `DNS_SERVERS` | No | `8.8.8.8,1.1.1.1` | DNS resolvers for `mongodb+srv://` (Atlas) SRV lookups; set empty to use the system resolver |
 | `GROQ_API_KEY` | No | _(empty)_ | Groq API key for LLM explanations |
 | `GROQ_MODEL` | No | `openai/gpt-oss-20b` | Groq model name |
 | `OPENAQ_API_KEY` | No | _(empty)_ | OpenAQ API key (improves rate limits) |
+| `READING_FRESHNESS_MS` | No | `10800000` (3 h) | How recent a reading must be to be usable — OpenAQ station readings are commonly 1–2 h delayed |
 | `FIREBASE_SERVICE_ACCOUNT_PATH` | No | _(empty)_ | Path to Firebase service-account JSON |
 | `LOG_LEVEL` | No | `info` | Pino log level |
 
@@ -222,6 +224,7 @@ VITE_FIREBASE_VAPID_KEY=BNbx...
 
 ## Scheduled Jobs
 
+- **Startup ingestion** — on boot, one ingestion runs in the background unless one has already run since the last hourly cron slot, so a restart never serves hours-old data while upstream has newer readings
 - **Hourly ingestion** — fetches PM2.5 from OpenAQ + CAMS from Open-Meteo + weather, persists to MongoDB
 - **Alert evaluation** — runs after ingestion; checks severity increases, deduplicates, sends Firebase push
 - **Daily summary** — morning notification at 6 AM PKT (1 AM UTC)
@@ -239,6 +242,7 @@ All responses use a JSON envelope: `{ "success": true, "data": { ... }, "meta": 
 | `/profiles` | POST | Create a household profile |
 | `/profiles/:user_id` | GET | List profiles for a user |
 | `/profiles/:profile_id` | PATCH | Update a profile |
+| `/profiles/:profile_id` | DELETE | Permanently delete a profile |
 | `/alerts/register-device` | POST | Register FCM token for push notifications |
 
 **Profile categories:** `adult` · `child` · `elderly` · `pregnant_woman` · `asthma_copd` · `outdoor_worker`
@@ -278,7 +282,7 @@ The client caches API responses in `localStorage` for resilience when connectivi
 ```
 backend/src/
 ├── server.js, app.js, config.js, db.js, logger.js, scheduler.js
-├── domain/          # Pure logic: thresholds, severity, confidence, rolling average, route comparison
+├── domain/          # Pure logic: thresholds, severity, confidence, rolling average, route comparison, recommendation keys
 ├── middleware/       # Error handler, request logger, validators
 ├── models/          # Mongoose schemas: User, Profile, Reading, Weather, Alert, Route
 ├── routes/          # Express routes: health, hazardStatus, routeCheck, profiles, alerts
@@ -291,9 +295,9 @@ backend/src/
 ```
 client/src/
 ├── main.jsx, App.jsx, sw.example.js
-├── pages/           # Home, ProfileSetup, RouteCheck, AlertDetail
+├── pages/           # Home, ProfileSetup, RouteCheck, AlertDetail, Welcome
 ├── components/      # AppLayout, HazardCard, BottomNav, NotificationPermission, OfflineBanner, ...
 ├── api/             # client.js, httpClient.js, transform.js, apiError.js, mockApi.js
-├── lib/             # cache, firebase, push, geolocation, identity, hazard, profiles, storage, utils
+├── lib/             # cache, firebase, push, geolocation, geocode, identity, hazard, platform, profiles, storage, utils
 └── index.css        # Tailwind v4 + theme tokens
 ```

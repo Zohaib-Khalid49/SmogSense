@@ -13,6 +13,7 @@ import {
   BAND_CONFIG,
   BAND_GRADIENT,
   CONFIDENCE_LABEL,
+  formatCheckedAt,
   formatUpdatedAt,
   getIntensity,
 } from '@/lib/hazard'
@@ -40,6 +41,7 @@ export default function HazardCard({ status }) {
     explanation,
     location,
     updatedAt,
+    fetchedAt,
   } = status
 
   const cfg = BAND_CONFIG[band] ?? BAND_CONFIG.hazard
@@ -49,6 +51,16 @@ export default function HazardCard({ status }) {
   // Finer-grained intensity within the band — gives the card day-to-day
   // movement even when the band label stays the same (common in Lahore).
   const intensity = getIntensity(pm25)
+
+  // Measurement lag: station readings are often 1–2 h behind the wall clock.
+  // When the check is meaningfully newer than the reading, show both —
+  // "Updated 2:00 PM · Checked 4:25 PM" means this is the newest data
+  // available, not that the app hasn't fetched since 2 PM.
+  const lagMs =
+    fetchedAt && updatedAt
+      ? new Date(fetchedAt).getTime() - new Date(updatedAt).getTime()
+      : 0
+  const showCheckedAt = lagMs > 5 * 60 * 1000
 
   const [showWhy, setShowWhy] = useState(false)
 
@@ -194,6 +206,7 @@ export default function HazardCard({ status }) {
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <MapPin className="size-3" aria-hidden="true" />
               {formatUpdatedAt(updatedAt)}
+              {showCheckedAt && ` · ${formatCheckedAt(fetchedAt)}`}
             </span>
           </div>
         </div>

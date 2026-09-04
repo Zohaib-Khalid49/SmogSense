@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet'
 import L from 'leaflet'
 import {
@@ -15,8 +15,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { BAND_CONFIG, BAND_HEX, NEUTRAL_HEX } from '@/lib/hazard'
 import { getRouteCheck } from '@/api/client'
-import { getLocation } from '@/lib/geolocation'
+import { getLocation, LAHORE_CENTER } from '@/lib/geolocation'
+import { getHomeLocation } from '@/lib/storage'
 import LocationSearch from '@/components/LocationSearch'
+import LocationHint from '@/components/LocationHint'
 import StatusMessage from '@/components/StatusMessage'
 import { getUserMessage } from '@/api/apiError'
 
@@ -31,13 +33,28 @@ function bandMarker(band) {
   })
 }
 
+/**
+ * Derive an honest origin label from how the position was obtained.
+ * The fallback coords are either the saved home area or central Lahore —
+ * comparing against LAHORE_CENTER tells them apart.
+ */
+function originLabel(loc) {
+  if (loc.source === 'gps') return 'Your location'
+  if (loc.source === 'cached') return 'Your location (last known)'
+  if (loc.lat === LAHORE_CENTER.lat && loc.lng === LAHORE_CENTER.lng) {
+    return 'Central Lahore'
+  }
+  return getHomeLocation()?.label || 'Your saved area'
+}
+
 export default function RouteCheck() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  // Origin from geolocation
-  const [origin, setOrigin] = useState(null) // { label, lat, lng }
+  // Origin from geolocation — read-only, auto-detected (not user-selectable)
+  const [origin, setOrigin] = useState(null) // { label, lat, lng, hint, source }
+  const [locating, setLocating] = useState(false)
   // Destination chosen via autocomplete
   const [destination, setDestination] = useState(null) // { label, lat, lng }
 
@@ -45,21 +62,37 @@ export default function RouteCheck() {
   // (zoom in/out, attribution) that otherwise show ugly black browser tooltips.
   const mapWrapRef = useRef(null)
 
+  // Apply a detected position as the origin, with an honest label for how
+  // it was obtained (gps / last known / saved home / central Lahore).
+  const applyOrigin = useCallback((loc) => {
+    setOrigin({
+      label: originLabel(loc),
+      lat: loc.lat,
+      lng: loc.lng,
+      hint: loc.hint,
+      source: loc.source,
+    })
+  }, [])
+
   // Detect origin on mount
   useEffect(() => {
     let active = true
     getLocation().then((loc) => {
       if (!active) return
-      setOrigin({
-        label: loc.source === 'gps' ? 'Your location' : 'Central Lahore',
-        lat: loc.lat,
-        lng: loc.lng,
-      })
+      applyOrigin(loc)
     })
     return () => {
       active = false
     }
-  }, [])
+  }, [applyOrigin])
+
+  // Re-request location from the hint's "Enable location" CTA
+  function handleLocRetry() {
+    setLocating(true)
+    getLocation()
+      .then(applyOrigin)
+      .finally(() => setLocating(false))
+  }
 
   const canCompare = origin && destination && !loading
 
@@ -186,6 +219,14 @@ export default function RouteCheck() {
             </span>
           </div>
         </div>
+
+        {/* Why we're not on live GPS (if applicable) — with retry */}
+        <LocationHint
+          hint={origin?.hint}
+          source={origin?.source}
+          onRetry={handleLocRetry}
+          retrying={locating}
+        />
 
         {/* Destination — autocomplete search */}
         <LocationSearch

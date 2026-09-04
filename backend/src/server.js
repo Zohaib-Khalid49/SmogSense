@@ -11,8 +11,9 @@ const Reading = require('./models/Reading');
 /**
  * On boot the scheduled cron won't fire until the top of the next hour, so a
  * freshly deployed/restarted server could serve an empty (or stale) DB for up
- * to an hour. This runs one ingestion at startup — but only if there's no
- * fresh reading already — so the app has data immediately after deploy.
+ * to an hour. This runs one ingestion at startup — unless one has already run
+ * since the most recent hourly slot — so the app has current data right
+ * after deploy.
  *
  * Runs in the background (after the server is listening) and never throws:
  * a transient upstream failure must not crash startup; the hourly cron will
@@ -20,18 +21,26 @@ const Reading = require('./models/Reading');
  */
 async function runStartupIngestionIfNeeded() {
   try {
-    const maxAge = new Date(Date.now() - config.ingestion.freshnessMs);
-    const freshCount = await Reading.countDocuments({
-      timestamp: { $gte: maxAge },
-    });
-    if (freshCount > 0) {
+    // Skip only if an ingestion has run since the last hourly cron slot.
+    // Reading `timestamp`s are *measurement* times — gating on those (as this
+    // once did, via a 3 h freshness window) let a restart happily serve a
+    // 2-hour-old reading while upstream already had a newer one. Mongoose
+    // bumps `updated_at` on every upsert, so the newest one tells us when
+    // ingestion last wrote, regardless of how old the measurements are.
+    // (Slot interval must stay in sync with cron.ingestion, which is hourly.)
+    const lastSlot = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000);
+    const lastWrite = await Reading.findOne({})
+      .sort({ updated_at: -1 })
+      .select('updated_at')
+      .lean();
+    if (lastWrite && lastWrite.updated_at >= lastSlot) {
       logger.info(
-        { freshCount },
-        'Startup ingestion skipped — fresh data already present',
+        { lastIngestionAt: lastWrite.updated_at },
+        'Startup ingestion skipped — ingestion already ran this hour',
       );
       return;
     }
-    logger.info('No fresh data on boot — running startup ingestion');
+    logger.info('No ingestion since the last hourly slot — running startup ingestion');
     await runIngestion();
     logger.info('Startup ingestion complete');
   } catch (err) {

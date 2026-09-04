@@ -10,7 +10,7 @@ const { getHazardBand, BANDS } = require('./thresholds');
  *
  * Meaningful difference criteria (at least one must be true):
  *   1. Different hazard bands
- *   2. PM2.5 difference exceeds 15% of the higher value
+ *   2. PM2.5 difference exceeds 5% of the higher value
  *   3. Confidence on both sides is at least 'medium'
  *
  * If confidence is 'insufficient' or 'model_only' on either side,
@@ -61,7 +61,7 @@ function compareRoutes(primary, alternate) {
   const alternateRank = CONFIDENCE_RANK[alternate.confidence] ?? 0;
   const reliable = primaryRank >= CONFIDENCE_RANK.medium && alternateRank >= CONFIDENCE_RANK.medium;
 
-  // Meaningful difference: bands differ OR gap > 15%, AND comparison is reliable
+  // Meaningful difference: bands differ OR gap > 5%, AND comparison is reliable
   const rawDifference = differentBands || significantGap;
   const meaningfulDifference = rawDifference && reliable;
 

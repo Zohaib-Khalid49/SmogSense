@@ -98,6 +98,20 @@ export function formatUpdatedAt(iso) {
   }
 }
 
+/** Format an ISO timestamp into a short "Checked 4:25 PM" string (time only). */
+export function formatCheckedAt(iso) {
+  try {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return ''
+    return `Checked ${d.toLocaleTimeString([], {
+      hour: 'numeric',
+      minute: '2-digit',
+    })}`
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Intensity within the AQI scale.
  *

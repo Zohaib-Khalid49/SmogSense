@@ -40,7 +40,8 @@ function isNetworkError(err) {
  */
 export async function getHazardStatus({ lat, lng, profileCategory, age, subDetail, band } = {}) {
   if (USE_MOCKS) {
-    return mock.getHazardStatus({ band })
+    const result = await mock.getHazardStatus({ band })
+    return { ...result, fetchedAt: new Date().toISOString() }
   }
 
   try {
@@ -54,6 +55,11 @@ export async function getHazardStatus({ lat, lng, profileCategory, age, subDetai
 
     if (noData) return null
     const result = transform.toHazardStatus(data)
+
+    // When this response was fetched — distinct from updatedAt (the station's
+    // measurement time), so the UI can show that a fresh check can still
+    // return a delayed reading.
+    result.fetchedAt = new Date().toISOString()
 
     // Cache successful response for offline fallback
     cacheResponse('hazard_status', result)
