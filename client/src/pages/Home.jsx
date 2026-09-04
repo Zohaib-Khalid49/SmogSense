@@ -5,6 +5,8 @@ import {
   Loader2,
   CloudSun,
   RefreshCw,
+  UserPlus,
+  ChevronRight,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import HazardCard from '@/components/HazardCard'
@@ -14,7 +16,7 @@ import { getHazardStatus, listProfiles } from '@/api/client'
 import { getLocation } from '@/lib/geolocation'
 import { getUserId } from '@/lib/identity'
 import { getUserMessage } from '@/api/apiError'
-import { loadProfiles } from '@/lib/storage'
+import { loadProfiles, loadUser } from '@/lib/storage'
 import { getProfileType } from '@/lib/profiles'
 import NotificationPermission from '@/components/NotificationPermission'
 import { formatCachedTime } from '@/lib/cache'
@@ -37,6 +39,10 @@ export default function Home() {
 
   // Geolocation
   const [geo, setGeo] = useState(null)
+  const [locating, setLocating] = useState(false)
+
+  // Live greeting (updates as the time of day changes)
+  const [greeting, setGreeting] = useState(getGreeting)
 
   // Profile switcher
   const [profiles, setProfiles] = useState([])
@@ -103,11 +109,25 @@ export default function Home() {
       document.removeEventListener('visibilitychange', handleVisibilityProfiles)
   }, [])
 
+  // Keep the greeting live — re-check every minute and on tab focus,
+  // so it stays correct across the morning/afternoon/evening boundaries.
+  useEffect(() => {
+    function refreshGreeting() {
+      setGreeting(getGreeting())
+    }
+    const interval = setInterval(refreshGreeting, 60 * 1000)
+    document.addEventListener('visibilitychange', refreshGreeting)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', refreshGreeting)
+    }
+  }, [])
+
   /**
    * Fetch hazard status using current geo + active profile category.
    */
   const fetchStatus = useCallback(
-    async (currentGeo, profileCategory) => {
+    async (currentGeo, profileCategory, profile) => {
       abortRef.current = false
       setLoading(true)
       setError(null)
@@ -118,6 +138,11 @@ export default function Home() {
           lat: currentGeo?.lat,
           lng: currentGeo?.lng,
           profileCategory,
+          age:
+            typeof profile?.age === 'number' && !Number.isNaN(profile.age)
+              ? profile.age
+              : undefined,
+          subDetail: profile?.subDetail || undefined,
         })
 
         if (abortRef.current) return
@@ -142,10 +167,15 @@ export default function Home() {
    * Full refresh: get location then fetch status.
    */
   const refresh = useCallback(async () => {
-    const loc = await getLocation()
-    setGeo(loc)
-    await fetchStatus(loc, activeCategory)
-  }, [activeCategory, fetchStatus])
+    setLocating(true)
+    try {
+      const loc = await getLocation()
+      setGeo(loc)
+      await fetchStatus(loc, activeCategory, activeProfile)
+    } finally {
+      setLocating(false)
+    }
+  }, [activeCategory, activeProfile, fetchStatus])
 
   // Initial load
   useEffect(() => {
@@ -158,29 +188,29 @@ export default function Home() {
   // Re-fetch when active profile changes
   useEffect(() => {
     if (!geo) return
-    fetchStatus(geo, activeCategory) // eslint-disable-line react-hooks/set-state-in-effect
-  }, [activeCategory, geo, fetchStatus])
+    fetchStatus(geo, activeCategory, activeProfile) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [activeCategory, activeProfile, geo, fetchStatus])
 
   // Auto-poll every 15 minutes
   useEffect(() => {
     pollTimer.current = setInterval(() => {
-      if (geo) fetchStatus(geo, activeCategory)
+      if (geo) fetchStatus(geo, activeCategory, activeProfile)
     }, POLL_INTERVAL_MS)
 
     return () => clearInterval(pollTimer.current)
-  }, [geo, activeCategory, fetchStatus])
+  }, [geo, activeCategory, activeProfile, fetchStatus])
 
   // Re-fetch when tab comes back into focus
   useEffect(() => {
     function handleVisibility() {
       if (document.visibilityState === 'visible' && geo) {
-        fetchStatus(geo, activeCategory)
+        fetchStatus(geo, activeCategory, activeProfile)
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () =>
       document.removeEventListener('visibilitychange', handleVisibility)
-  }, [geo, activeCategory, fetchStatus])
+  }, [geo, activeCategory, activeProfile, fetchStatus])
 
   // Derived
   const bandKey = status?.band ?? 'safe'
@@ -194,7 +224,10 @@ export default function Home() {
           <CloudSun className="size-5 text-primary" />
         </div>
         <div className="flex flex-1 flex-col">
-          <h1 className="text-lg font-bold">{getGreeting()}</h1>
+          <h1 className="text-lg font-bold">
+            {greeting}
+            {loadUser().name ? `, ${loadUser().name}` : ''}
+          </h1>
           <p className="text-sm text-muted-foreground">
             Is it safe to go outside right now?
           </p>
@@ -241,16 +274,24 @@ export default function Home() {
         </div>
       )}
 
-      {/* No profiles hint */}
+      {/* No profiles yet — actionable prompt to personalize */}
       {profiles.length === 0 && (
         <Link
           to="/setup"
-          className="flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2.5 text-sm text-primary transition-colors hover:bg-primary/10"
+          className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 transition-colors hover:bg-primary/10"
         >
-          <span className="font-medium">Set up your profile</span>
-          <span className="text-xs text-muted-foreground">
-            — for personalized thresholds
-          </span>
+          <div className="flex size-9 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <UserPlus className="size-4.5 text-primary" />
+          </div>
+          <div className="flex flex-1 flex-col">
+            <span className="text-sm font-semibold text-foreground">
+              Set up your profile
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Get alerts tailored to you
+            </span>
+          </div>
+          <ChevronRight className="size-4 flex-shrink-0 text-muted-foreground" />
         </Link>
       )}
 
@@ -260,7 +301,14 @@ export default function Home() {
       )}
 
       {/* Location hint (shown when not using live GPS) */}
-      {geo && <LocationHint hint={geo.hint} source={geo.source} />}
+      {geo && (
+        <LocationHint
+          hint={geo.hint}
+          source={geo.source}
+          onRetry={refresh}
+          retrying={locating}
+        />
+      )}
 
       {/* ── Status area: loading / error / noData / success ────────── */}
 

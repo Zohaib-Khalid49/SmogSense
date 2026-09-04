@@ -26,6 +26,8 @@ const queryValidator = validateQuery({
   lat: { required: true, type: 'number', min: -90, max: 90 },
   lng: { required: true, type: 'number', min: -180, max: 180 },
   profile_category: { oneOf: PROFILE_CATEGORIES },
+  age: { type: 'number', min: 0, max: 120 },
+  sub_detail: { type: 'string' },
 });
 
 router.get('/hazard-status', queryValidator, async (req, res, next) => {
@@ -33,6 +35,11 @@ router.get('/hazard-status', queryValidator, async (req, res, next) => {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
     const profileCategory = req.query.profile_category || 'adult';
+    const age =
+      req.query.age !== undefined && req.query.age !== ''
+        ? Number(req.query.age)
+        : undefined;
+    const subDetail = req.query.sub_detail || undefined;
 
     // ── Validate coordinates are in Lahore ─────
     if (!isInLahoreBounds(lat, lng)) {
@@ -70,14 +77,18 @@ router.get('/hazard-status', queryValidator, async (req, res, next) => {
     const confidence = calculateConfidence({ distanceKm, freshnessMs, sources });
     const averageConfidence = getAverageConfidence(averaging);
 
-    // ── Get recommendation ─────────────────────
+    // ── Get latest weather (before recommendation, so the AI can use it) ──
+    const weather = await findLatestWeather();
+
+    // ── Get personalised recommendation ────────
     const recommendation = await getRecommendation({
       pm25: effectivePm25,
       profileCategory,
+      age,
+      subDetail,
+      weather,
+      confidence,
     });
-
-    // ── Get latest weather ─────────────────────
-    const weather = await findLatestWeather();
 
     // ── Build response ─────────────────────────
     const responseData = {
@@ -90,9 +101,12 @@ router.get('/hazard-status', queryValidator, async (req, res, next) => {
       last_updated: reading.timestamp.toISOString(),
       recommendation: {
         key: recommendation.key,
+        headline: recommendation.headline,
         summary: recommendation.summary,
+        actions: recommendation.actions,
         explanation: recommendation.explanation,
         advice: recommendation.advice,
+        source: recommendation.source,
       },
       station: {
         id: reading.station_id,

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import ProfileCard from '@/components/ProfileCard'
 import SubDetailPicker from '@/components/SubDetailPicker'
 import ProfileList from '@/components/ProfileList'
-import { PROFILE_TYPES, getProfileType, MAX_PROFILES } from '@/lib/profiles'
+import { PROFILE_TYPES, getProfileType, MAX_PROFILES, validateAge } from '@/lib/profiles'
 import { loadProfiles, saveProfiles } from '@/lib/storage'
 import { createProfile, listProfiles } from '@/api/client'
 import { getUserId } from '@/lib/identity'
@@ -19,6 +19,34 @@ import { getUserId } from '@/lib/identity'
  * 4. "done"      — profile added, show list + option to add more or continue
  */
 
+const VALID_CATEGORIES = new Set([
+  'adult',
+  'child',
+  'elderly',
+  'pregnant',
+  'respiratory',
+  'outdoor_worker',
+])
+
+/**
+ * Extract the true profile category from a profile object, regardless of
+ * whether it's a backend profile (profileCategory) or a mock/localStorage
+ * one (profileId = category or "category_timestamp").
+ */
+function profileCategoryOf(p) {
+  if (p?.profileCategory && VALID_CATEGORIES.has(p.profileCategory)) {
+    return p.profileCategory
+  }
+  const id = p?.profileId || ''
+  if (VALID_CATEGORIES.has(id)) return id
+  // Mock id format "category_timestamp" — strip the timestamp suffix
+  const prefix = id.split('_').slice(0, -1).join('_')
+  if (VALID_CATEGORIES.has(prefix)) return prefix
+  // "outdoor_worker" has an underscore; handle the "outdoor_worker_123" case
+  if (id.startsWith('outdoor_worker')) return 'outdoor_worker'
+  return id
+}
+
 export default function ProfileSetup() {
   const navigate = useNavigate()
 
@@ -26,6 +54,7 @@ export default function ProfileSetup() {
   const [selectedId, setSelectedId] = useState(null)
   const [subDetail, setSubDetail] = useState(null)
   const [label, setLabel] = useState('')
+  const [age, setAge] = useState('')
   const [profiles, setProfiles] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -36,6 +65,17 @@ export default function ProfileSetup() {
   const selectedType = getProfileType(selectedId)
   const hasSubDetails = selectedType?.subDetails != null
   const canAddMore = profiles.length < MAX_PROFILES
+
+  // Age must fit the selected profile type (e.g. no age-1 "Adult")
+  const ageError = validateAge(selectedId, age)
+
+  // One-per-category rule: categories already added can't be added again.
+  // Backend profiles carry the true category in `profileCategory`.
+  // Mock/localStorage profiles store the category in `profileId`
+  // (either the bare category or "category_timestamp").
+  const usedCategories = new Set(
+    profiles.map((p) => profileCategoryOf(p)),
+  )
 
   // Track online/offline status
   useEffect(() => {
@@ -53,19 +93,16 @@ export default function ProfileSetup() {
   useEffect(() => {
     let cancelled = false
     async function fetchProfiles() {
+      let loaded
       try {
         const userId = getUserId()
         const backendProfiles = await listProfiles(userId)
-        if (!cancelled && backendProfiles.length > 0) {
-          setProfiles(backendProfiles)
-          return
-        }
+        loaded = backendProfiles.length > 0 ? backendProfiles : loadProfiles()
       } catch {
-        // Fall back to localStorage
+        loaded = loadProfiles()
       }
-      if (!cancelled) {
-        setProfiles(loadProfiles())
-      }
+      if (cancelled) return
+      setProfiles(loaded)
     }
     fetchProfiles()
     return () => { cancelled = true }
@@ -97,19 +134,41 @@ export default function ProfileSetup() {
   }
 
   async function addProfile() {
+    // Enforce the profile cap (defense in depth — not just the hidden button)
+    if (profiles.length >= MAX_PROFILES) {
+      setError(`You can add at most ${MAX_PROFILES} profiles.`)
+      setStep('done')
+      return
+    }
+
+    // Prevent duplicate category (one-per-category rule)
+    const already = new Set(profiles.map((p) => profileCategoryOf(p)))
+    if (already.has(selectedId)) {
+      setError('You already have a profile for this category.')
+      setStep('done')
+      return
+    }
+
     // Block profile creation when offline
     if (!isOnline) {
       setError('Profile editing requires an internet connection.')
       return
     }
 
+    // Block if the age contradicts the selected profile type
+    if (validateAge(selectedId, age)) {
+      return
+    }
+
     const profileLabel = label.trim() || selectedType?.label || ''
+    const ageNum = age.trim() === '' ? undefined : Number(age)
 
     // Build the new profile object for localStorage
     const localStorageProfile = {
       profileId: selectedId,
       subDetail,
       label: profileLabel,
+      age: ageNum ?? null,
     }
 
     setSaving(true)
@@ -120,6 +179,7 @@ export default function ProfileSetup() {
       const created = await createProfile({
         userId: getUserId(),
         name: profileLabel,
+        age: ageNum,
         category: selectedId,
         subDetail,
       })
@@ -149,6 +209,7 @@ export default function ProfileSetup() {
     setSelectedId(null)
     setSubDetail(null)
     setLabel('')
+    setAge('')
   }
 
   function handleAddAnother() {
@@ -162,11 +223,12 @@ export default function ProfileSetup() {
     setProfiles(updated)
     saveProfiles(updated)
 
-    // In live mode, disable alerts instead of deleting
-    if (profile?.profileId && profile?.userId) {
-      // Backend profile — call updateProfile to disable alerts
-      import('@/api/client').then(({ updateProfile }) => {
-        updateProfile(profile.profileId, { alertsEnabled: false }).catch(() => {})
+    // Permanently delete the backend profile (live mode).
+    // Backend profileIds are 24-char Mongo ObjectIds; mock ids look like "child_123".
+    const isBackendId = /^[a-f\d]{24}$/i.test(profile?.profileId || '')
+    if (isBackendId) {
+      import('@/api/client').then(({ deleteProfile }) => {
+        deleteProfile(profile.profileId).catch(() => {})
       })
     }
 
@@ -188,11 +250,15 @@ export default function ProfileSetup() {
   return (
     <div className="flex flex-col gap-5">
       <header className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-bold">Who is this for?</h1>
+        <div className="flex flex-col gap-0.5">
+          <h1 className="text-xl font-bold">
+            {step === 'done' ? 'Your profiles' : 'Who is this for?'}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Select a profile so SmogSense can personalize thresholds and
-            recommendations for you.
+            {step === 'select' && 'Choose who to personalize air quality alerts for.'}
+            {step === 'subdetail' && 'Add an optional detail for finer alerts.'}
+            {step === 'label' && 'A name and age help tailor recommendations.'}
+            {step === 'done' && 'Manage the people you track — up to 4.'}
           </p>
         </div>
         {/* Step progress dots */}
@@ -202,9 +268,7 @@ export default function ProfileSetup() {
               key={i}
               className={cn(
                 'h-1.5 rounded-full transition-all duration-300',
-                i <= stepIndex
-                  ? 'w-8 bg-primary'
-                  : 'w-4 bg-border',
+                i <= stepIndex ? 'w-8 bg-primary' : 'w-4 bg-border',
               )}
             />
           ))}
@@ -220,14 +284,23 @@ export default function ProfileSetup() {
                 key={p.id}
                 profile={p}
                 selected={selectedId === p.id}
+                disabled={usedCategories.has(p.id)}
                 onSelect={() => handleSelectProfile(p.id)}
               />
             ))}
           </div>
 
+          {/* Cap reached — inline message instead of allowing Continue */}
+          {!canAddMore && (
+            <p className="rounded-lg bg-destructive/5 px-3 py-2 text-center text-sm font-medium text-destructive">
+              You can add up to {MAX_PROFILES} profiles. Delete one below to add
+              another.
+            </p>
+          )}
+
           <Button
             onClick={handleNext}
-            disabled={!selectedId || !isOnline}
+            disabled={!selectedId || !isOnline || !canAddMore}
             className="gap-1.5"
           >
             {!isOnline && <WifiOff className="size-4" />}
@@ -270,28 +343,63 @@ export default function ProfileSetup() {
       {/* Step: optional label */}
       {step === 'label' && (
         <>
-          <div className="flex flex-col gap-2">
-            <label
-              htmlFor="profile-label"
-              className="text-sm font-medium"
-            >
-              Give this profile a name{' '}
-              <span className="text-muted-foreground">(optional)</span>
-            </label>
-            <input
-              id="profile-label"
-              type="text"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder={selectedType?.label || 'e.g. Mom, Ahmed'}
-              className="rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-            <p className="text-xs text-muted-foreground">
-              Useful if you're tracking more than one person.
+          <div className="flex flex-col gap-4">
+            <p className="text-sm font-medium">
+              Tell us about this {selectedType?.label?.toLowerCase() || 'person'}
             </p>
+
+            {/* Name */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="profile-label" className="text-sm">
+                Name <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <input
+                id="profile-label"
+                type="text"
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder={selectedType?.label || 'e.g. Mom, Ahmed'}
+                className="rounded-lg border border-input bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+
+            {/* Age */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="profile-age" className="text-sm">
+                Age <span className="text-muted-foreground">(optional)</span>
+              </label>
+              <input
+                id="profile-age"
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="120"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                placeholder="e.g. 8"
+                aria-invalid={ageError ? true : undefined}
+                className={cn(
+                  'rounded-lg border bg-background px-4 py-2.5 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2',
+                  ageError
+                    ? 'border-destructive focus-visible:ring-destructive'
+                    : 'border-input focus-visible:ring-ring',
+                )}
+              />
+              {ageError ? (
+                <p className="text-xs text-destructive">{ageError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Helps fine-tune health thresholds for this person.
+                </p>
+              )}
+            </div>
           </div>
 
-          <Button onClick={handleNext} className="gap-1.5" disabled={saving}>
+          <Button
+            onClick={handleNext}
+            className="gap-1.5"
+            disabled={saving || !!ageError}
+          >
             {saving ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
@@ -306,7 +414,7 @@ export default function ProfileSetup() {
       {step === 'done' && (
         <>
           {error && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            <div className="rounded-lg border border-caution/30 bg-caution/10 px-4 py-3 text-sm text-caution">
               {error}
             </div>
           )}
@@ -330,11 +438,13 @@ export default function ProfileSetup() {
       )}
 
       {/* Show existing profiles below the form if user is adding another */}
+      {/* Existing profiles list with delete (non-done steps) —
+          no "add another" button here since this IS the add screen */}
       {step !== 'done' && profiles.length > 0 && (
         <div className="mt-2 border-t border-border pt-4">
           <ProfileList
             profiles={profiles}
-            onAdd={canAddMore ? handleAddAnother : undefined}
+            onAdd={undefined}
             onRemove={handleRemoveProfile}
           />
         </div>

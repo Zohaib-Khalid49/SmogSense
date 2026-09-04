@@ -34,7 +34,7 @@ const BG_MAP = {
   noData: 'bg-muted/50 border-border',
   location: 'bg-caution/5 border-caution/20',
   info: 'bg-primary/5 border-primary/20',
-  warning: 'bg-amber-500/5 border-amber-500/20',
+  warning: 'bg-caution/5 border-caution/20',
 }
 
 const ICON_COLOR_MAP = {
@@ -42,7 +42,7 @@ const ICON_COLOR_MAP = {
   noData: 'text-muted-foreground',
   location: 'text-caution',
   info: 'text-primary',
-  warning: 'text-amber-600',
+  warning: 'text-caution',
 }
 
 export default function StatusMessage({

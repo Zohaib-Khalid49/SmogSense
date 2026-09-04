@@ -13,7 +13,6 @@ const PROHIBITED_PATTERNS = [
   /\bmedication\b/i,
   /\btreatment\b/i,
   /\bcure\b/i,
-  /\bsymptom(s)?\b/i,
   /\bdisease\b/i,
   /\bdoctor\b/i,
   /\bphysician\b/i,
@@ -23,35 +22,45 @@ const PROHIBITED_PATTERNS = [
 ];
 
 // ── Constraints ────────────────────────────────
-const MAX_LENGTH = 300;
-const MIN_LENGTH = 20;
+const HEADLINE_MAX = 40;
+const SUMMARY_MAX = 140;
+const EXPLANATION_MAX = 300;
+const ACTION_MAX = 32; // each action chip: a few words
+const MAX_ACTIONS = 4;
 
 /**
- * Generate a constrained explanation via Groq.
+ * Generate a personalised, structured recommendation via Groq.
  *
- * The LLM receives ONLY:
- *   • The hazard band
- *   • The profile category
- *   • The PM2.5 value
- *   • The static recommendation summary (as context)
+ * Unlike the old version, the LLM now receives the FULL decision context:
+ *   • hazard band + PM2.5 value + confidence
+ *   • profile category, age, and sub-detail (trimester / asthma vs COPD)
+ *   • weather (wind, humidity, temperature) so it can reason about dispersion
  *
- * It does NOT receive raw sensor data, station details, or
- * any other sensitive information.
+ * It returns STRUCTURED output the UI can render as a glanceable card:
+ *   { headline, summary, actions[], explanation }
+ *
+ * Returns null on any failure so the caller can fall back to static templates.
  *
  * @param {object} opts
- * @param {string} opts.recommendationKey  e.g. "caution_children"
- * @param {string} opts.hazardBand         e.g. "caution"
- * @param {string} opts.profileCategory    e.g. "children"
- * @param {number} opts.pm25               e.g. 42.3
- * @param {string} opts.staticSummary      The static template summary
- * @returns {Promise<string|null>}  Generated explanation, or null on failure
+ * @param {string} opts.hazardBand         'safe' | 'caution' | 'hazardous'
+ * @param {string} opts.profileCategory    e.g. 'child'
+ * @param {number} opts.pm25               µg/m³
+ * @param {string} [opts.confidence]       'high' | 'medium' | 'low' | 'model_only'
+ * @param {number} [opts.age]              person's age
+ * @param {string} [opts.subDetail]        e.g. 'trimester_2', 'asthma', 'copd'
+ * @param {object} [opts.weather]          { wind_speed_ms, humidity_pct, temperature_c }
+ * @param {object} [opts.fallback]         static { summary, advice[] } for grounding
+ * @returns {Promise<{headline,summary,actions,explanation}|null>}
  */
-async function generateExplanation({
-  recommendationKey,
+async function generateRecommendation({
   hazardBand,
   profileCategory,
   pm25,
-  staticSummary,
+  confidence,
+  age,
+  subDetail,
+  weather,
+  fallback,
 }) {
   const apiKey = config.groq.apiKey;
   if (!apiKey) {
@@ -59,7 +68,16 @@ async function generateExplanation({
     return null;
   }
 
-  const prompt = buildPrompt({ hazardBand, profileCategory, pm25, staticSummary });
+  const prompt = buildPrompt({
+    hazardBand,
+    profileCategory,
+    pm25,
+    confidence,
+    age,
+    subDetail,
+    weather,
+    fallback,
+  });
 
   try {
     const response = await axios.post(
@@ -70,10 +88,15 @@ async function generateExplanation({
           {
             role: 'system',
             content:
-              'You are an air-quality health advisor. Write a brief, friendly explanation ' +
-              'in 1-3 sentences about the current air quality situation and what the person ' +
-              'should do. Do NOT give medical advice, diagnose, prescribe, or mention ' +
-              'medications. Keep it practical and actionable. Do not use bullet points.',
+              'You are SmogSense, a friendly air-quality advisor for Lahore. ' +
+              'Respond with ONLY a JSON object and nothing else — no markdown, no code fences, no text before or after. ' +
+              'Schema: {"headline": string, "summary": string, "actions": string[], "explanation": string}. ' +
+              'headline: 2-4 words naming the key action (e.g. "Limit outdoor time"). ' +
+              'summary: one short plain sentence. ' +
+              'actions: 2-4 items, each a SHORT phrase of 2-4 words (e.g. "Wear an N95", "Keep trips short"). ' +
+              'explanation: 1-2 short sentences on why. ' +
+              'Tailor everything to the person\'s age and situation and the reading. ' +
+              'Never diagnose, prescribe, or name medications. Keep it plain for a non-expert.',
           },
           { role: 'user', content: prompt },
         ],
@@ -95,97 +118,175 @@ async function generateExplanation({
       log.warn('Groq rate limit hit');
       return null;
     }
-
     if (response.status === 401 || response.status === 403) {
       log.error('Groq authentication failed');
       return null;
     }
-
     if (response.status !== 200) {
       log.error({ status: response.status }, 'Groq returned non-200');
       return null;
     }
 
-    const explanation = extractExplanation(response.data);
-    if (!explanation) return null;
+    const raw = response.data?.choices?.[0]?.message?.content;
+    if (typeof raw !== 'string') return null;
 
-    // ── Validate output ──────────────────────
-    if (explanation.length < MIN_LENGTH) {
-      log.warn({ length: explanation.length }, 'Groq output too short');
+    const parsed = safeParseJson(raw);
+    if (!parsed) {
+      log.warn('Groq output was not valid JSON');
       return null;
     }
 
-    if (explanation.length > MAX_LENGTH) {
-      log.warn({ length: explanation.length }, 'Groq output too long, truncating');
-      // Try to truncate at sentence boundary
-      const truncated = truncateAtSentence(explanation, MAX_LENGTH);
-      return truncated;
-    }
-
-    if (containsMedicalLanguage(explanation)) {
-      log.warn('Groq output contains prohibited medical language');
+    const result = validateAndClean(parsed);
+    if (!result) {
+      log.warn('Groq output failed validation');
       return null;
     }
 
-    log.info({ key: recommendationKey, length: explanation.length }, 'Groq explanation generated');
-    return explanation;
+    log.info(
+      { band: hazardBand, profile: profileCategory, actions: result.actions.length },
+      'Groq recommendation generated',
+    );
+    return result;
   } catch (err) {
     if (err.code === 'ECONNABORTED' || err.code === 'ETIMEDOUT') {
       log.warn('Groq request timed out');
       return null;
     }
-
     log.warn({ err: err.message }, 'Groq request failed');
     return null;
   }
 }
 
 /**
- * Build the user prompt for Groq.
+ * Build the user prompt with the full decision context.
  */
-function buildPrompt({ hazardBand, profileCategory, pm25, staticSummary }) {
+function buildPrompt({
+  hazardBand,
+  profileCategory,
+  pm25,
+  confidence,
+  age,
+  subDetail,
+  weather,
+  fallback,
+}) {
+  const lines = [];
+  lines.push(`Air quality band: ${hazardBand}.`);
+  lines.push(`PM2.5: ${pm25} µg/m³.`);
+  if (confidence) lines.push(`Reading confidence: ${confidence}.`);
+
   const profileLabel = profileCategory.replace(/_/g, ' ');
-  return (
-    `Current air quality: ${hazardBand} (PM2.5: ${pm25} µg/m³). ` +
-    `Profile: ${profileLabel}. ` +
-    `Standard advice: "${staticSummary}". ` +
-    `Write a brief, friendly explanation that expands on this advice.`
+  let person = `Person: ${profileLabel}`;
+  if (typeof age === 'number' && !Number.isNaN(age)) person += `, age ${age}`;
+  if (subDetail) person += `, detail: ${humaniseSubDetail(subDetail)}`;
+  lines.push(person + '.');
+
+  if (weather) {
+    const w = [];
+    if (typeof weather.wind_speed_ms === 'number') {
+      const wind = weather.wind_speed_ms;
+      const windNote = wind < 1.5 ? ' (low — pollution may linger)' : '';
+      w.push(`wind ${wind} m/s${windNote}`);
+    }
+    if (typeof weather.humidity_pct === 'number') w.push(`humidity ${weather.humidity_pct}%`);
+    if (typeof weather.temperature_c === 'number') w.push(`temp ${weather.temperature_c}°C`);
+    if (w.length) lines.push(`Weather: ${w.join(', ')}.`);
+  }
+
+  if (fallback?.summary) {
+    lines.push(`Reference guidance: "${fallback.summary}".`);
+  }
+
+  lines.push(
+    'Produce the JSON described in the system prompt, tailored specifically to this person and reading.',
   );
+  return lines.join(' ');
+}
+
+/** Turn a sub-detail id into a human phrase for the prompt. */
+function humaniseSubDetail(sub) {
+  const map = {
+    trimester_1: 'first trimester of pregnancy',
+    trimester_2: 'second trimester of pregnancy',
+    trimester_3: 'third trimester of pregnancy',
+    asthma: 'has asthma',
+    copd: 'has COPD',
+    other: 'has a respiratory condition',
+  };
+  if (map[sub]) return map[sub];
+  if (typeof sub === 'string' && sub.startsWith('other:')) {
+    return `respiratory condition: ${sub.slice(6)}`;
+  }
+  return String(sub);
+}
+
+/** Parse JSON, tolerating stray markdown fences. */
+function safeParseJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return JSON.parse(match[0]);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
 /**
- * Extract the assistant's text from a Groq chat completion response.
+ * Validate and sanitise the structured LLM output.
+ * Returns a clean object or null if it can't be trusted.
  */
-function extractExplanation(data) {
-  const content = data?.choices?.[0]?.message?.content;
-  if (typeof content !== 'string') return null;
-  return content.trim();
+function validateAndClean(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+
+  const headline = clip(str(obj.headline), HEADLINE_MAX);
+  const summary = clip(str(obj.summary), SUMMARY_MAX);
+  const explanation = clip(str(obj.explanation), EXPLANATION_MAX);
+
+  let actions = Array.isArray(obj.actions)
+    ? obj.actions.map((a) => clip(str(a), ACTION_MAX)).filter(Boolean)
+    : [];
+  actions = actions.slice(0, MAX_ACTIONS);
+
+  // Must have at least a summary and one action to be useful
+  if (!summary || actions.length === 0) return null;
+
+  // Medical-language guard across all fields
+  const combined = [headline, summary, explanation, ...actions].join(' ');
+  if (containsMedicalLanguage(combined)) {
+    log.warn('Groq output contains prohibited medical language');
+    return null;
+  }
+
+  return {
+    headline: headline || null,
+    summary,
+    actions,
+    explanation: explanation || summary,
+  };
+}
+
+function str(v) {
+  return typeof v === 'string' ? v.trim() : '';
+}
+
+function clip(s, max) {
+  if (!s) return '';
+  return s.length > max ? s.slice(0, max).trim() : s;
 }
 
 /**
  * Check if text contains prohibited medical language.
- *
  * @param {string} text
- * @returns {boolean}  true if prohibited terms found
+ * @returns {boolean}
  */
 function containsMedicalLanguage(text) {
   return PROHIBITED_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-/**
- * Truncate text at the last sentence boundary within the max length.
- *
- * @param {string} text
- * @param {number} maxLen
- * @returns {string}
- */
-function truncateAtSentence(text, maxLen) {
-  const truncated = text.slice(0, maxLen);
-  const lastPeriod = truncated.lastIndexOf('.');
-  if (lastPeriod > maxLen * 0.5) {
-    return truncated.slice(0, lastPeriod + 1);
-  }
-  return truncated + '...';
-}
-
-module.exports = { generateExplanation, containsMedicalLanguage };
+module.exports = { generateRecommendation, containsMedicalLanguage };

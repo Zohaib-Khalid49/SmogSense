@@ -41,3 +41,57 @@ export function saveProfiles(profiles) {
 export function hasCompletedSetup() {
   return loadProfiles().length > 0
 }
+
+// ─── User / onboarding ───────────────────────────────────────────────
+
+const USER_KEY = 'smogsense_user'
+
+/**
+ * @typedef {Object} SmogUser
+ * @property {string} name - display name (optional, may be '')
+ * @property {{ label: string, lat: number, lng: number } | null} home - saved home area
+ * @property {boolean} onboarded - whether the welcome step is done
+ */
+
+/**
+ * Load the user profile (name, home location, onboarded flag).
+ * @returns {SmogUser}
+ */
+export function loadUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY)
+    if (!raw) return { name: '', home: null, onboarded: false }
+    const u = JSON.parse(raw)
+    return {
+      name: u.name || '',
+      home: u.home || null,
+      onboarded: u.onboarded === true,
+    }
+  } catch {
+    return { name: '', home: null, onboarded: false }
+  }
+}
+
+/**
+ * Save the user profile.
+ * @param {SmogUser} user
+ */
+export function saveUser(user) {
+  localStorage.setItem(USER_KEY, JSON.stringify(user))
+}
+
+/**
+ * Whether the user has completed the one-time welcome/onboarding step.
+ * @returns {boolean}
+ */
+export function hasOnboarded() {
+  return loadUser().onboarded === true
+}
+
+/**
+ * Get the saved home location (or null).
+ * @returns {{ label: string, lat: number, lng: number } | null}
+ */
+export function getHomeLocation() {
+  return loadUser().home
+}

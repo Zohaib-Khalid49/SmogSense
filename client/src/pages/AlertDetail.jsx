@@ -5,20 +5,25 @@ import {
   Loader2,
   Route as RouteIcon,
   AlertTriangle,
+  Gauge,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { BAND_CONFIG, CONFIDENCE_LABEL, formatUpdatedAt } from '@/lib/hazard'
+import {
+  BAND_CONFIG,
+  BAND_GRADIENT,
+  CONFIDENCE_LABEL,
+  formatUpdatedAt,
+} from '@/lib/hazard'
 import { getAlertDetail, getHazardStatus } from '@/api/client'
-import { getAlertPayload, onForegroundMessage, storeAlertPayload } from '@/lib/push'
-
-const BAND_GRADIENT = {
-  safe: 'from-green-600 to-emerald-500',
-  caution: 'from-amber-500 to-yellow-400',
-  hazard: 'from-red-600 to-rose-500',
-}
+import {
+  getAlertPayload,
+  onForegroundMessage,
+  storeAlertPayload,
+  clearAlertUnread,
+} from '@/lib/push'
 
 /**
  * Map a push payload severity/band to the client-side band string.
@@ -121,6 +126,8 @@ export default function AlertDetail() {
         enrichPayload(data).then((enriched) => {
           setAlert(enriched)
           setNoAlert(false)
+          // User is already viewing this alert — nothing left unread.
+          clearAlertUnread()
         })
       }
     })
@@ -138,20 +145,21 @@ export default function AlertDetail() {
   // In live mode, alerts come via push notification payload only
   if (noAlert) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 py-12 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-          <BellOff className="size-5 text-muted-foreground" />
+      <div className="flex min-h-[55svh] flex-col items-center justify-center gap-5 py-10 text-center">
+        <div className="flex size-16 items-center justify-center rounded-full bg-muted/70 ring-8 ring-muted/30">
+          <BellOff className="size-6 text-muted-foreground" />
         </div>
-        <div className="flex flex-col gap-1">
-          <h2 className="text-lg font-semibold">No alerts yet</h2>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            Alerts are delivered as push notifications when air quality worsens for your profiles.
+        <div className="flex flex-col gap-1.5">
+          <h2 className="text-lg font-semibold">You&apos;re all caught up</h2>
+          <p className="mx-auto max-w-xs text-sm leading-relaxed text-muted-foreground">
+            No alerts right now. We&apos;ll send a push notification the moment
+            air quality worsens for one of your profiles.
           </p>
         </div>
         <Button asChild className="gap-2 shadow-sm">
           <Link to="/">
-            <RouteIcon className="size-4" />
-            Back to dashboard
+            <Gauge className="size-4" />
+            Check current air quality
           </Link>
         </Button>
       </div>

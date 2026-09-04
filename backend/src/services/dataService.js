@@ -35,44 +35,48 @@ async function findNearestReading(lat, lng) {
   const sources = [];
 
   // ── 1. Try OpenAQ station readings ──────────
+  // Use a geospatial $near query so we return the *actual* nearest fresh
+  // station, backed by the 2dsphere index on station_location. (Previously
+  // this pulled the 20 newest readings and measured distance in JS, which
+  // could silently drop the closest station when many stations reported in
+  // the same window — "nearest" was really "nearest among the 20 newest".)
   try {
-    // Find all recent readings
-    const readings = await Reading.find({
-      timestamp: { $gte: maxAge },
+    const nearest = await Reading.findOne({
       source: 'openaq',
-    })
-      .sort({ timestamp: -1 })
-      .limit(20)
-      .lean();
+      timestamp: { $gte: maxAge },
+      station_location: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [lng, lat] },
+        },
+      },
+    }).lean();
 
-    if (readings.length > 0) {
+    if (nearest) {
       sources.push('openaq');
 
-      // Find closest station
-      let closest = null;
-      let closestDist = Infinity;
+      // $near returns the closest document; a station may have several fresh
+      // readings, so grab that station's newest reading for the value shown.
+      const latestForStation = await Reading.findOne({
+        station_id: nearest.station_id,
+        timestamp: { $gte: maxAge },
+      })
+        .sort({ timestamp: -1 })
+        .lean();
+      const closest = latestForStation || nearest;
 
-      for (const r of readings) {
-        const coords = r.station_location?.coordinates;
-        if (!coords || coords.length !== 2) continue;
-
-        const dist = haversineKm(lat, lng, coords[1], coords[0]);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closest = r;
-        }
-      }
-
-      if (closest) {
-        const averaging = await getStationRollingAverage(closest.station_id);
-        return {
-          reading: closest,
-          distanceKm: closestDist,
-          sources,
-          freshnessMs: Date.now() - closest.timestamp.getTime(),
-          averaging,
-        };
-      }
+      const coords = closest.station_location?.coordinates;
+      const distanceKm =
+        coords && coords.length === 2
+          ? haversineKm(lat, lng, coords[1], coords[0])
+          : null;
+      const averaging = await getStationRollingAverage(closest.station_id);
+      return {
+        reading: closest,
+        distanceKm,
+        sources,
+        freshnessMs: Date.now() - closest.timestamp.getTime(),
+        averaging,
+      };
     }
   } catch (err) {
     log.warn({ err: err.message }, 'Error querying OpenAQ readings');
@@ -80,19 +84,26 @@ async function findNearestReading(lat, lng) {
 
   // ── 2. Fall back to CAMS model data ─────────
   try {
+    // CAMS is now ingested as a grid across Lahore, so use $near to pick the
+    // model cell closest to the user rather than one city-wide value.
     const camsReading = await Reading.findOne({
       source: 'cams',
       timestamp: { $gte: maxAge },
-    })
-      .sort({ timestamp: -1 })
-      .lean();
+      station_location: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [lng, lat] },
+        },
+      },
+    }).lean();
 
     if (camsReading) {
       sources.push('cams');
       const averaging = await getStationRollingAverage(camsReading.station_id);
       return {
         reading: camsReading,
-        distanceKm: null, // CAMS is a model, not a station
+        // Model data: keep distanceKm null so confidence stays 'model_only'
+        // regardless of which grid cell was nearest (it's not a real station).
+        distanceKm: null,
         sources,
         freshnessMs: Date.now() - camsReading.timestamp.getTime(),
         averaging,

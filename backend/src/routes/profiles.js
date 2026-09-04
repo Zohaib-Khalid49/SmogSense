@@ -160,4 +160,33 @@ router.patch('/profiles/:profile_id', profileIdParamValidator, updateValidator, 
   }
 });
 
+// ── DELETE /profiles/:profile_id ───────────────
+// Permanently removes a profile from the database.
+router.delete('/profiles/:profile_id', profileIdParamValidator, async (req, res, next) => {
+  try {
+    const { profile_id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(profile_id)) {
+      return next(
+        new AppError('Invalid profile_id format', 400, { code: 'INVALID_ID' }),
+      );
+    }
+
+    const deleted = await Profile.findOneAndDelete({ _id: profile_id }).lean();
+
+    if (!deleted) {
+      return next(
+        new AppError('Profile not found', 404, { code: 'NOT_FOUND' }),
+      );
+    }
+
+    res.json({
+      success: true,
+      data: { id: deleted._id, deleted: true },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

@@ -118,6 +118,40 @@
     display: none;
   }
 
+  /* Themed tooltip — opt in with `data-tooltip="text"` on a positioned,
+     hoverable element. Replaces the ugly native black `title` tooltip:
+     matches the app palette, stays compact, and appears only on hover/focus
+     (pointer devices), so it never interferes with touch. */
+  [data-tooltip] {
+    position: relative;
+  }
+  @media (hover: hover) {
+    [data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1;
+      background-color: var(--color-foreground);
+      color: var(--color-background);
+      box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 120ms ease;
+      z-index: 60;
+    }
+    [data-tooltip]:hover::after,
+    [data-tooltip]:focus-visible::after {
+      opacity: 1;
+    }
+  }
+
   html {
     color-scheme: light dark;
     -webkit-text-size-adjust: 100%;
@@ -139,5 +173,23 @@
 
   #root {
     min-height: 100svh;
+  }
+
+  /* Desktop / large-screen framing: the app is a mobile-first column, so on
+     wide viewports present it as a centered "device" card on a soft muted
+     field instead of a strip floating in an empty void. The card styling
+     (rounded, bordered, shadowed, capped height) lives on the AppLayout /
+     Welcome wrappers; here we just set the backdrop and center it.
+     Phone/tablet is unaffected. */
+  @media (min-width: 1024px) {
+    body {
+      background-color: var(--color-muted);
+    }
+    #root {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100svh;
+    }
   }
 }

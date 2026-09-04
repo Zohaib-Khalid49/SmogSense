@@ -18,6 +18,12 @@ import { registerDevice } from '@/api/client'
 // ── localStorage keys ─────────────────────────────────────────────────
 const PUSH_DISMISSED_KEY = 'smogsense_push_dismissed'
 const ALERT_PAYLOAD_KEY = 'smogsense_alert_payload'
+const ALERT_UNREAD_KEY = 'smogsense_alert_unread'
+
+/** Custom event fired whenever the unread-alert flag changes, so UI in the
+ *  same tab can react immediately (the native `storage` event only fires in
+ *  *other* tabs). */
+const UNREAD_EVENT = 'smogsense:alert-unread-change'
 
 // ── VAPID key (web push certificate) ─────────────────────────────────
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || ''
@@ -221,6 +227,75 @@ export function storeAlertPayload(data) {
     sessionStorage.setItem(ALERT_PAYLOAD_KEY, JSON.stringify(data))
   } catch {
     // sessionStorage unavailable
+  }
+  // A freshly-arrived alert is unread until the user opens the Alerts tab.
+  markAlertUnread()
+}
+
+// ── Unread Alert Flag ─────────────────────────────────────────────────
+// Backs the red dot on the Alerts tab. Persisted in localStorage so it
+// survives reloads, and broadcast via a custom event so the current tab's
+// UI updates instantly.
+
+/**
+ * Is there an alert the user hasn't seen yet?
+ * @returns {boolean}
+ */
+export function hasUnreadAlert() {
+  try {
+    return localStorage.getItem(ALERT_UNREAD_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** Flag that a new, unseen alert has arrived. */
+export function markAlertUnread() {
+  try {
+    localStorage.setItem(ALERT_UNREAD_KEY, '1')
+  } catch {
+    // localStorage unavailable — badge just won't persist
+  }
+  emitUnreadChange()
+}
+
+/** Clear the unread flag (call when the user views the Alerts tab). */
+export function clearAlertUnread() {
+  try {
+    localStorage.removeItem(ALERT_UNREAD_KEY)
+  } catch {
+    // ignore
+  }
+  emitUnreadChange()
+}
+
+/**
+ * Subscribe to unread-flag changes. Fires on same-tab updates (custom event)
+ * and cross-tab updates (native storage event).
+ *
+ * @param {(unread: boolean) => void} callback
+ * @returns {() => void} unsubscribe
+ */
+export function onAlertUnreadChange(callback) {
+  if (typeof window === 'undefined') return () => {}
+  const handler = () => callback(hasUnreadAlert())
+  const storageHandler = (e) => {
+    if (e.key === ALERT_UNREAD_KEY) callback(hasUnreadAlert())
+  }
+  window.addEventListener(UNREAD_EVENT, handler)
+  window.addEventListener('storage', storageHandler)
+  return () => {
+    window.removeEventListener(UNREAD_EVENT, handler)
+    window.removeEventListener('storage', storageHandler)
+  }
+}
+
+function emitUnreadChange() {
+  if (typeof window === 'undefined') return
+  try {
+    window.dispatchEvent(new Event(UNREAD_EVENT))
+  } catch {
+    // ignore
   }
 }
 

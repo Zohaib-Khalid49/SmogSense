@@ -38,7 +38,7 @@ function isNetworkError(err) {
  * @param {string} [opts.band] - (mock only) force a specific band for dev preview
  * @returns {Promise<Object|null>} client-shaped hazard status, or null if no data
  */
-export async function getHazardStatus({ lat, lng, profileCategory, band } = {}) {
+export async function getHazardStatus({ lat, lng, profileCategory, age, subDetail, band } = {}) {
   if (USE_MOCKS) {
     return mock.getHazardStatus({ band })
   }
@@ -48,6 +48,8 @@ export async function getHazardStatus({ lat, lng, profileCategory, band } = {}) 
       lat,
       lng,
       profile_category: transform.toBackendCategory(profileCategory),
+      age,
+      sub_detail: subDetail,
     })
 
     if (noData) return null
@@ -85,7 +87,9 @@ export async function listProfiles(userId) {
   }
 
   const { data } = await http.get(`/profiles/${userId}`)
-  return transform.toProfiles(data)
+  // Backend has no DELETE — "removed" profiles are disabled (alerts_enabled:false).
+  // Treat disabled profiles as deleted so they don't reappear in the UI.
+  return transform.toProfiles(data).filter((p) => p.alertsEnabled !== false)
 }
 
 /**
@@ -143,6 +147,17 @@ export async function updateProfile(profileId, updates) {
 
   const { data } = await http.patch(`/profiles/${profileId}`, body)
   return transform.toProfile(data)
+}
+
+/**
+ * Permanently delete a profile.
+ *
+ * @param {string} profileId
+ * @returns {Promise<void>}
+ */
+export async function deleteProfile(profileId) {
+  if (USE_MOCKS) return
+  await http.del(`/profiles/${profileId}`)
 }
 
 // ─── Route Check ─────────────────────────────────────────────────────

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <!-- Source image for PWA icon generation (@vite-pwa/assets-generator).
+       Dark slate background, cloud + wind-swirl mark centered with padding
+       so maskable/apple variants keep safe margins. -->
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+
+  <g transform="translate(96 112)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Cloud outline (white on dark) -->
+    <path
+      d="M24 132
+         a80 80 0 0 1 76.8 -102.4
+         a96 96 0 0 1 179.2 33.6
+         a68 68 0 0 1 -11.2 135.2
+         H64
+         a64 64 0 0 1 -40 -66.4 Z"
+      stroke="#f8fafc" stroke-width="22"/>
+
+    <!-- Wind swirls (hazard palette) -->
+    <path d="M4 188 H236 a34 34 0 1 0 -34 -34"
+          stroke="#22c55e" stroke-width="22"/>
+    <path d="M-16 244 H268 a37 37 0 1 1 -37 37"
+          stroke="#fbbf24" stroke-width="22"/>
+    <path d="M20 300 H176 a32 32 0 1 0 -32 -32"
+          stroke="#f87171" stroke-width="22"/>
+  </g>
+</svg>

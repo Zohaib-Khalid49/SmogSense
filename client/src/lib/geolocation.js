@@ -10,6 +10,8 @@
  * @see Backend-Client-Integration.md §4 Phase 1 task 2
  */
 
+import { getHomeLocation } from '@/lib/storage'
+
 const STORAGE_KEY = 'smogsense_last_position'
 const TIMEOUT_MS = 10_000
 
@@ -68,6 +70,26 @@ function cachePosition(lat, lng) {
 }
 
 /**
+ * Build a fallback GeoResult, preferring the user's saved home area
+ * (set during onboarding) over central Lahore.
+ *
+ * @param {string} fallbackHint - hint to use if there's no saved home
+ * @returns {GeoResult}
+ */
+function fallbackResult(fallbackHint) {
+  const home = getHomeLocation()
+  if (home && typeof home.lat === 'number' && typeof home.lng === 'number') {
+    return {
+      lat: home.lat,
+      lng: home.lng,
+      source: 'fallback',
+      hint: `Showing your saved area (${home.label || 'home'}).`,
+    }
+  }
+  return { ...LAHORE_CENTER, source: 'fallback', hint: fallbackHint }
+}
+
+/**
  * Get the user's current location.
  *
  * Priority:
@@ -98,11 +120,9 @@ export async function getLocation() {
       }
 
       // Outside Lahore — fall back but tell the user
-      return {
-        ...LAHORE_CENTER,
-        source: 'fallback',
-        hint: 'You appear to be outside Lahore — showing central Lahore data.',
-      }
+      return fallbackResult(
+        'You appear to be outside Lahore — showing central Lahore data.',
+      )
     } catch (err) {
       // Permission denied or timeout — try cache, then fallback
       const cached = loadCachedPosition()
@@ -114,14 +134,11 @@ export async function getLocation() {
         }
       }
 
-      return {
-        ...LAHORE_CENTER,
-        source: 'fallback',
-        hint:
-          err.code === 1
-            ? 'Location access denied — showing central Lahore. Enable location for your area.'
-            : 'Could not determine location — showing central Lahore.',
-      }
+      return fallbackResult(
+        err.code === 1
+          ? 'Location access denied — showing your saved/central area. Enable location for precise data.'
+          : 'Could not determine location — showing your saved/central area.',
+      )
     }
   }
 
@@ -135,9 +152,5 @@ export async function getLocation() {
     }
   }
 
-  return {
-    ...LAHORE_CENTER,
-    source: 'fallback',
-    hint: 'Location not available — showing central Lahore.',
-  }
+  return fallbackResult('Location not available — showing your saved/central area.')
 }

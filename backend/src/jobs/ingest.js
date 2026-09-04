@@ -6,7 +6,7 @@ const db = require('../db');
 const Reading = require('../models/Reading');
 const Weather = require('../models/Weather');
 const { fetchLatestReadings, UpstreamError } = require('../services/openaqAdapter');
-const { fetchCamsData } = require('../services/openMeteoCamsAdapter');
+const { fetchCamsGrid } = require('../services/openMeteoCamsAdapter');
 const { fetchWeather } = require('../services/openMeteoWeatherAdapter');
 
 const log = loggers.ingestion;
@@ -58,13 +58,15 @@ async function runIngestion() {
     );
   }
 
-  // ── 2. Fetch CAMS model data ─────────────────
+  // ── 2. Fetch CAMS model data (grid across Lahore) ─────────────────
+  // A grid (not a single city-center point) so the model fallback varies
+  // by location — otherwise every area would get the same value.
   try {
-    const camsReading = await fetchCamsData({ lat, lng });
-    if (camsReading) {
-      const upserted = await upsertReadings([camsReading]);
+    const camsReadings = await fetchCamsGrid({ bounds: config.lahore.bounds });
+    if (camsReadings.length > 0) {
+      const upserted = await upsertReadings(camsReadings);
       summary.cams = { success: true, count: upserted, error: null };
-      log.info('CAMS data persisted');
+      log.info({ count: upserted }, 'CAMS grid persisted');
     } else {
       summary.cams = { success: true, count: 0, error: 'No data returned' };
     }

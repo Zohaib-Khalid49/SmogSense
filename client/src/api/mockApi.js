@@ -26,8 +26,12 @@ const MOCK_STATES = {
     band: 'safe',
     pm25: 32,
     confidence: 'high',
+    headline: 'Good to go',
+    actions: ['Outdoor OK', 'Open windows'],
     recommendation:
       'Air is clean right now. Normal outdoor activity is fine for everyone.',
+    explanation:
+      'PM2.5 is low, so the air poses little risk for outdoor activity today.',
     location: 'Gulberg, Lahore',
     updatedAt: new Date().toISOString(),
     source: 'station',
@@ -36,8 +40,12 @@ const MOCK_STATES = {
     band: 'caution',
     pm25: 96,
     confidence: 'medium',
+    headline: 'Limit outdoor time',
+    actions: ['Shorten trips', 'Wear a mask', 'Ease hard exercise'],
     recommendation:
       'Air is moderately polluted. Sensitive people should limit long outdoor exertion and consider a mask.',
+    explanation:
+      'At this PM2.5 level, sensitive groups may feel throat or eye irritation during longer outdoor exertion.',
     location: 'Gulberg, Lahore',
     updatedAt: new Date().toISOString(),
     source: 'station',
@@ -46,8 +54,12 @@ const MOCK_STATES = {
     band: 'hazard',
     pm25: 214,
     confidence: 'model',
+    headline: 'Stay indoors',
+    actions: ['Stay inside', 'Close windows', 'N95 if outside'],
     recommendation:
       'Air is hazardous. Avoid going outside if you can. If you must, wear an N95 and keep the trip short.',
+    explanation:
+      'PM2.5 is very high — prolonged exposure is unhealthy for everyone, not just sensitive groups.',
     location: 'Gulberg, Lahore',
     updatedAt: new Date().toISOString(),
     source: 'model',

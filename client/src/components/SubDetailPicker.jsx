@@ -18,8 +18,19 @@ export default function SubDetailPicker({
   onSelect,
   profileLabel,
 }) {
-  const [otherText, setOtherText] = useState('')
-  const isOtherSelected = selected === 'other'
+  // "Other" is selected whether the value is the bare 'other' or the
+  // "other:<free text>" form produced once the user starts typing.
+  const isOtherSelected =
+    selected === 'other' ||
+    (typeof selected === 'string' && selected.startsWith('other:'))
+
+  // Seed the free-text box from an existing "other:<text>" selection so the
+  // value survives re-mounts (e.g. navigating back to this step).
+  const [otherText, setOtherText] = useState(() =>
+    typeof selected === 'string' && selected.startsWith('other:')
+      ? selected.slice('other:'.length)
+      : '',
+  )
 
   function handleSelect(id) {
     onSelect(id)

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Bell, BellOff, X, Loader2, CheckCircle2, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { notificationHelpText } from '@/lib/platform'
 import {
   isPushSupported,
   isPermissionGranted,
@@ -71,7 +72,7 @@ export default function NotificationPermission({ profiles = [], className }) {
       const granted = await requestPermission()
       if (!granted) {
         console.log('[push] Permission denied')
-        setErrorMsg('Permission denied. Please allow notifications in browser settings.')
+        setErrorMsg(notificationHelpText())
         setLoading(false)
         return
       }
@@ -208,10 +209,10 @@ export default function NotificationPermission({ profiles = [], className }) {
       <div className="flex items-center gap-2.5">
         <div className={cn(
           'flex size-9 items-center justify-center rounded-full',
-          permissionGranted ? 'bg-green-500/10' : 'bg-primary/10'
+          permissionGranted ? 'bg-safe/10' : 'bg-primary/10'
         )}>
           {permissionGranted ? (
-            <CheckCircle2 className="size-4 text-green-600" />
+            <CheckCircle2 className="size-4 text-safe" />
           ) : (
             <Bell className="size-4 text-primary" />
           )}

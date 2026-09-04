@@ -18,6 +18,8 @@ const templates = Object.freeze({
   // ═══════════════════════════════════════════════
 
   safe_adult: {
+    headline: 'Good to go',
+    actions: ['Outdoor OK', 'Open windows'],
     summary: 'Air quality is currently safe for normal activities.',
     advice: [
       'Enjoy outdoor activities as usual.',
@@ -26,6 +28,8 @@ const templates = Object.freeze({
   },
 
   safe_child: {
+    headline: 'Safe to play',
+    actions: ['Play outside OK', 'Great for sports'],
     summary: 'Air quality is currently safe for children\'s normal activities.',
     advice: [
       'Children can play outdoors as usual.',
@@ -34,6 +38,8 @@ const templates = Object.freeze({
   },
 
   safe_elderly: {
+    headline: 'Good to go',
+    actions: ['Walks are fine', 'Ventilate home'],
     summary: 'Air quality is currently safe for normal activities.',
     advice: [
       'Enjoy outdoor walks and activities.',
@@ -42,6 +48,8 @@ const templates = Object.freeze({
   },
 
   safe_pregnant_woman: {
+    headline: 'Good to go',
+    actions: ['Outdoor OK', 'Light exercise fine'],
     summary: 'Air quality is currently within safe levels.',
     advice: [
       'Normal outdoor activities are fine.',
@@ -50,6 +58,8 @@ const templates = Object.freeze({
   },
 
   safe_asthma_copd: {
+    headline: 'Good to go',
+    actions: ['Normal activity OK', 'Keep inhaler handy'],
     summary: 'Air quality is currently within safe levels for you.',
     advice: [
       'Normal activities are generally fine.',
@@ -58,6 +68,8 @@ const templates = Object.freeze({
   },
 
   safe_outdoor_worker: {
+    headline: 'Good to go',
+    actions: ['Work as normal', 'All tasks OK'],
     summary: 'Air quality is currently safe for outdoor work.',
     advice: [
       'Normal outdoor work activities can proceed.',
@@ -70,6 +82,8 @@ const templates = Object.freeze({
   // ═══════════════════════════════════════════════
 
   caution_adult: {
+    headline: 'Ease outdoor exertion',
+    actions: ['Limit hard exercise', 'Take breaks'],
     summary: 'Air quality is moderately elevated. Prolonged exertion may cause discomfort.',
     advice: [
       'Consider reducing prolonged outdoor exertion.',
@@ -78,6 +92,8 @@ const templates = Object.freeze({
   },
 
   caution_child: {
+    headline: 'Shorten outdoor play',
+    actions: ['Shorten play', 'Watch for coughing', 'Move sports indoors'],
     summary: 'Air quality is elevated. Children should reduce prolonged outdoor activity.',
     advice: [
       'Shorten outdoor play sessions.',
@@ -87,6 +103,8 @@ const templates = Object.freeze({
   },
 
   caution_elderly: {
+    headline: 'Limit exertion',
+    actions: ['Shorten walks', 'Stay hydrated', 'Filter indoor air'],
     summary: 'Air quality is elevated. Reduce prolonged outdoor exertion.',
     advice: [
       'Limit long outdoor walks or strenuous activity.',
@@ -96,6 +114,8 @@ const templates = Object.freeze({
   },
 
   caution_pregnant_woman: {
+    headline: 'Take extra care',
+    actions: ['Less outdoor time', 'Prefer indoors', 'Stay hydrated'],
     summary: 'Air quality is elevated. Take extra care with outdoor exposure.',
     advice: [
       'Reduce time spent on outdoor exertion.',
@@ -105,7 +125,9 @@ const templates = Object.freeze({
   },
 
   caution_asthma_copd: {
-    summary: 'Air quality may trigger symptoms. Take extra precautions.',
+    headline: 'Take precautions',
+    actions: ['Limit exertion', 'Keep inhaler close', 'Mask if outside'],
+    summary: 'Air quality may affect your breathing. Take extra precautions.',
     advice: [
       'Reduce prolonged outdoor exertion.',
       'Keep your rescue inhaler with you.',
@@ -114,6 +136,8 @@ const templates = Object.freeze({
   },
 
   caution_outdoor_worker: {
+    headline: 'Reduce heavy work',
+    actions: ['Reschedule hard tasks', 'More breaks', 'Wear a mask'],
     summary: 'Air quality is elevated. Reduce strenuous outdoor work where possible.',
     advice: [
       'Reschedule heavy physical tasks to early morning or evening if feasible.',
@@ -127,6 +151,8 @@ const templates = Object.freeze({
   // ═══════════════════════════════════════════════
 
   hazardous_adult: {
+    headline: 'Stay indoors',
+    actions: ['Stay inside', 'Close windows', 'N95 if outside'],
     summary: 'Air quality is unhealthy. Everyone should limit outdoor exposure.',
     advice: [
       'Stay indoors as much as possible.',
@@ -137,6 +163,8 @@ const templates = Object.freeze({
   },
 
   hazardous_child: {
+    headline: 'Keep kids indoors',
+    actions: ['Keep indoors', 'No outdoor play', 'Watch breathing'],
     summary: 'Air quality is unhealthy. Children should stay indoors.',
     advice: [
       'Keep children indoors with windows closed.',
@@ -147,6 +175,8 @@ const templates = Object.freeze({
   },
 
   hazardous_elderly: {
+    headline: 'Stay indoors',
+    actions: ['Stay inside', 'No outdoor activity', 'Run air purifier'],
     summary: 'Air quality is unhealthy. Stay indoors and limit exertion.',
     advice: [
       'Stay indoors with windows and doors closed.',
@@ -157,6 +187,8 @@ const templates = Object.freeze({
   },
 
   hazardous_pregnant_woman: {
+    headline: 'Minimise exposure',
+    actions: ['Stay inside', 'No outdoor exertion', 'Use air purifier'],
     summary: 'Air quality is unhealthy. Minimise all outdoor exposure.',
     advice: [
       'Stay indoors with windows closed.',
@@ -167,7 +199,9 @@ const templates = Object.freeze({
   },
 
   hazardous_asthma_copd: {
-    summary: 'Air quality is dangerous for people with respiratory conditions. Stay indoors.',
+    headline: 'Stay indoors',
+    actions: ['Stay inside', 'Inhaler close', 'Air purifier on'],
+    summary: 'Air quality is dangerous for sensitive breathing. Stay indoors.',
     advice: [
       'Stay indoors with windows closed.',
       'Avoid all outdoor activity.',
@@ -177,6 +211,8 @@ const templates = Object.freeze({
   },
 
   hazardous_outdoor_worker: {
+    headline: 'Stop outdoor work',
+    actions: ['Pause outdoor work', 'Fitted N95', 'Frequent breaks'],
     summary: 'Air quality is dangerous. Outdoor work should be stopped or minimised.',
     advice: [
       'Stop or postpone non-essential outdoor work.',

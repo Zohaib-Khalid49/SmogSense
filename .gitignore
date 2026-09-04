@@ -55,3 +55,4 @@ Thumbs.db
 *.local
 .cache/
 coverage/
+README.md

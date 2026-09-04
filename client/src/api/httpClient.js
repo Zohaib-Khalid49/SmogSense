@@ -53,6 +53,17 @@ export async function patch(path, body) {
 }
 
 /**
+ * Make a DELETE request to the backend.
+ *
+ * @param {string} path - e.g. '/profiles/:id'
+ * @returns {Promise<{ data: any, meta?: any, noData: boolean }>}
+ * @throws {ApiError}
+ */
+export async function del(path) {
+  return request('DELETE', path)
+}
+
+/**
  * Core request function. Not exported — use get/post/patch above.
  */
 async function request(method, path, params = {}, body = undefined) {

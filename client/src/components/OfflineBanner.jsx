@@ -41,8 +41,8 @@ export default function OfflineBanner() {
       className={cn(
         'flex items-center justify-center gap-2 px-4 py-1.5 text-center text-xs font-medium transition-all',
         state === 'offline'
-          ? 'bg-amber-500/90 text-white'
-          : 'bg-green-500/90 text-white',
+          ? 'bg-caution text-white'
+          : 'bg-safe text-white',
       )}
       role="status"
       aria-live="polite"

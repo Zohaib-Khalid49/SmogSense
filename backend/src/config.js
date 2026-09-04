@@ -46,8 +46,8 @@ const config = {
   groq: {
     apiKey: env('GROQ_API_KEY', ''),
     model: env('GROQ_MODEL', 'openai/gpt-oss-20b'),
-    maxTokens: 200,
-    timeoutMs: 5000,
+    maxTokens: 400,
+    timeoutMs: 8000,
   },
 
   // ── Firebase / Push ──────────────────────────
@@ -80,7 +80,12 @@ const config = {
 
   // ── Ingestion ───────────────────────────────
   ingestion: {
-    freshnessMs: 60 * 60 * 1000,
+    // How recent a reading must be to be usable. OpenAQ station readings are
+    // inherently delayed — /latest returns the last *measurement* time, which
+    // is commonly 1–2 h old — so a 1 h window caused constant fallback to the
+    // CAMS model. 3 h keeps real station data usable and matches the LOW
+    // confidence tier in domain/confidence.js. Override via READING_FRESHNESS_MS.
+    freshnessMs: int('READING_FRESHNESS_MS', 3 * 60 * 60 * 1000),
     stationRadiusKm: 30,
     averagingWindowMs: 24 * 60 * 60 * 1000, // 24-hour rolling average
   },

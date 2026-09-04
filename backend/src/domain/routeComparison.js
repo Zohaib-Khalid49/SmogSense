@@ -27,7 +27,10 @@ const CONFIDENCE_RANK = Object.freeze({
 });
 
 // ── Meaningful-difference threshold ────────────
-const PM25_DIFF_THRESHOLD = 0.15; // 15%
+// A 5% relative gap is enough to call one area cleaner/worse. Lahore readings
+// often sit close together, so a stricter threshold made almost everything
+// read as "about the same"; 5% surfaces modest-but-real differences.
+const PM25_DIFF_THRESHOLD = 0.05; // 5%
 
 /**
  * Compare exposure between two routes.

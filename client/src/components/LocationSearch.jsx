@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Navigation, Loader2, MapPin } from 'lucide-react'
+import { Navigation, Loader2, MapPin, LocateFixed } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { searchPlaces } from '@/lib/geocode'
 
@@ -15,8 +15,17 @@ import { searchPlaces } from '@/lib/geocode'
  * @param {string} props.placeholder
  * @param {(place: { label: string, lat: number, lng: number }) => void} props.onSelect
  * @param {{ label: string } | null} [props.selected] - currently selected place (for display)
+ * @param {() => void} [props.onUseCurrentLocation] - if provided, shows a GPS
+ *   button inside the input's trailing edge (saves a separate button/row)
+ * @param {boolean} [props.locating] - spinner state for the GPS button
  */
-export default function LocationSearch({ placeholder, onSelect, selected }) {
+export default function LocationSearch({
+  placeholder,
+  onSelect,
+  selected,
+  onUseCurrentLocation,
+  locating = false,
+}) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
@@ -84,8 +93,26 @@ export default function LocationSearch({ placeholder, onSelect, selected }) {
           selected && !query && 'placeholder:text-foreground placeholder:font-medium',
         )}
       />
-      {loading && (
+      {/* Trailing edge: search spinner, else optional "use my location" button */}
+      {loading ? (
         <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-muted-foreground" />
+      ) : (
+        onUseCurrentLocation && (
+          <button
+            type="button"
+            onClick={onUseCurrentLocation}
+            disabled={locating}
+            aria-label="Use my current location"
+            data-tooltip="Use my location"
+            className="absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+          >
+            {locating ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <LocateFixed className="size-4" />
+            )}
+          </button>
+        )
       )}
 
       {/* Suggestions dropdown */}

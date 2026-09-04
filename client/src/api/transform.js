@@ -80,11 +80,17 @@ function toLocation(station) {
  * render them (explanation, advice bullets) without another adapter change.
  */
 function toRecommendation(rec) {
-  if (!rec) return { recommendation: '', explanation: '', advice: [] }
-  if (typeof rec === 'string') return { recommendation: rec, explanation: '', advice: [] }
+  if (!rec) {
+    return { recommendation: '', headline: '', actions: [], explanation: '', advice: [] }
+  }
+  if (typeof rec === 'string') {
+    return { recommendation: rec, headline: '', actions: [], explanation: '', advice: [] }
+  }
 
   return {
     recommendation: rec.summary || '',
+    headline: rec.headline || '',
+    actions: Array.isArray(rec.actions) ? rec.actions : [],
     explanation: rec.explanation || '',
     advice: Array.isArray(rec.advice) ? rec.advice : [],
   }
@@ -127,6 +133,8 @@ export function toHazardStatus(raw) {
     confidence: toConfidence(raw.confidence_level),
     averageConfidence: raw.average_confidence ?? null,
     recommendation: rec.recommendation,
+    headline: rec.headline,
+    actions: rec.actions,
     explanation: rec.explanation,
     advice: rec.advice,
     location: toLocation(raw.station),
@@ -196,7 +204,7 @@ export function toProfile(raw) {
   if (!raw) return null
 
   return {
-    profileId: raw._id || raw.profile_id || '',
+    profileId: raw.id || raw._id || raw.profile_id || '',
     userId: raw.user_id || '',
     name: raw.name || '',
     age: raw.age ?? null,

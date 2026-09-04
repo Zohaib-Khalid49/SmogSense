@@ -63,6 +63,7 @@ export default function ProfileList({ profiles, onAdd, onRemove }) {
                 </span>
                 <span className="text-xs text-muted-foreground">
                   {type?.label}
+                  {(p.age ?? null) !== null && ` · age ${p.age}`}
                   {p.subDetail && (
                     <Badge variant="secondary" className="ml-2 text-[10px]">
                       {p.subDetail}
@@ -84,22 +85,22 @@ export default function ProfileList({ profiles, onAdd, onRemove }) {
       </div>
 
       {onAdd && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onAdd}
-          className="gap-1.5 self-start"
-        >
-          <Plus className="size-4" />
-          Add another profile
-        </Button>
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onAdd}
+            className="gap-1.5 self-start"
+          >
+            <Plus className="size-4" />
+            Add another profile
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Track multiple people from one device.
+          </p>
+        </>
       )}
-
-      <p className="text-xs text-muted-foreground">
-        Caregivers can track multiple people (e.g., a child and an elderly
-        parent) from one device.
-      </p>
 
       {/* Delete confirmation dialog */}
       <AlertDialog
