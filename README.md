@@ -1,5 +1,10 @@
 # SmogSense
 
+AI-Powered Smog Decisions for Lahore's Families
+
+> "One app says 180. Another says 260. None of them know your child
+> has asthma. We do. That's the whole product."
+
 ## Why we built SmogSense
 
 Every winter, Lahore disappears into its own smoke. The sky goes grey-brown
