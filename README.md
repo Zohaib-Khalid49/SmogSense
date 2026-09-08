@@ -7,78 +7,53 @@ AI-Powered Smog Decisions for Lahore's Families
 
 ## Why we built SmogSense
 
-Every winter, Lahore disappears into its own smoke. The sky goes grey-brown
-by late October, and by November the city is routinely ranked among the most
-polluted on Earth. Schools close. Outdoor match schedules collapse. Hospital
-ERs fill up with breathing difficulties. And through all of it, life goes on —
-because it has to. People still commute, kids still walk to school,
-families still decide, every single day, whether today is an outside day.
+Every winter, Lahore disappears into its own smoke. Schools close, ERs fill
+up with breathing difficulties — and life goes on, because it has to. Every
+single day, families still decide whether today is an outside day.
 
-The apps don't help the way they should.
+The apps don't help the way they should. They'll tell you the AQI is 245.
+"Unhealthy." But that number is a citywide average, and it treats every pair
+of lungs as identical. **The apps measure the air, but the question is a
+decision** — and for some families, that gap isn't an inconvenience, it's a
+health risk they manage every day.
 
-They'll tell you the AQI is 245. "Unhealthy." But that number is a citywide
-average from a station that might be six kilometres from your street — and it
-treats every pair of lungs as identical. The air that's merely unpleasant for
-a healthy 25-year-old is a genuinely different story for a child with asthma,
-a pregnant mother, or a rickshaw driver spending eight hours in it.
-
-We kept running into the same gap: **the apps measure the air, but the
-question is a decision.** Nobody should need a US EPA breakpoints table open
-in a second tab to answer it.
-
-That gap isn't abstract. For some families, it's not an inconvenience —
-it's a health risk they manage every single day.
+## One decision, every morning
 
 **Meet Fatima.** She's 34, a school teacher in Lahore, mother of two — a
-six-year-old with mild asthma and a three-year-old in preschool.
+six-year-old with mild asthma and a three-year-old in preschool. One weather
+app tells her 180. Another says 260. Her son's school messages *"AQI is high,
+send masks."* Nobody tells her what to do about *her* kids.
 
-Every smog-season morning, she faces the same dilemma. She opens her window
-and thinks the air looks okay — but she can't be sure. Her son's school
-messages *"AQI is high, send masks,"* but she has no way to verify it. One
-weather app says 180. Another says 260. A third shows nothing at all.
+Her question was never *"what is the AQI?"* It's *"what do I do about my kids
+today?"* So SmogSense answers it directly:
 
-Her husband's family has a history of COPD, and she worries about her kids
-constantly — but all she gets is generic "stay indoors" advice that isn't
-actionable when you have a life to live. Classes to teach, school runs to
-make, groceries to buy.
-
-Fatima's question was never *"what is the AQI?"* It's *"what do I do about my
-kids today?"* — and no app she's ever used has even tried to answer it.
-
-So SmogSense answers it directly.
-
-- **A verdict, not a number** — safe / caution / hazardous, computed from
-  PM2.5 at the station *nearest you*, against thresholds that tighten for
-  your profile: child, pregnancy, asthma/COPD, outdoor work.
-- **Advice you can act on** — plain-language guidance from an LLM, with a
-  deterministic template fallback so the app never goes mute when the AI
-  does.
+- **A verdict, not a number** — safe / caution / hazardous, from the station
+  nearest you, against thresholds that tighten for your profile (child,
+  pregnancy, asthma/COPD, outdoor work).
+- **Advice you can act on** — plain-language guidance, with a deterministic
+  template fallback if the LLM is unavailable.
 - **Route awareness** — compare the air at your origin and your destination
   before you travel, not after.
-- **Honest data** — monitoring stations report one to two hours late. Instead
-  of quietly showing stale numbers, SmogSense says so: *"Updated 2:00 PM ·
-  Checked 4:25 PM."* If the app can't reach the network, it shows the last
-  known verdict and tells you it's stale.
+- **Honest data** — monitoring stations report 1–2 hours late; SmogSense says
+  so: *"Updated 2:00 PM · Checked 4:25 PM."*
 
-On a smog-season morning, Fatima opens SmogSense instead of her window. It
-finds the station nearest her, checks it against her son's profile — a child
-with asthma has a far lower caution line than a healthy adult — and gives her
-a straight answer: what the verdict is, whether the school-run route is any
-worse than home, and what's worth doing about it. Different morning, different
-question, an actual answer.
-
-That honesty became a principle while building this: an air quality app that
-quietly serves yesterday's number is worse than no app at all. Trust is the
-feature.
+An air quality app that quietly serves yesterday's number is worse than no
+app at all. Trust is the feature.
 
 SmogSense is live as an installable PWA — an Express + MongoDB backend
 ingesting OpenAQ, Open-Meteo and CAMS data hourly, a React client with
-offline caching, and push alerts when the air turns. Built in and for
-Lahore's smog season, and ready for the next city that needs it.
+offline caching, and push alerts when the air turns. Built for Lahore's smog
+season, and ready for the next city that needs it.
 
-## What it does
+## What SmogSense answers with
 
-SmogSense is a coordinate-based smog decision-support web app for Lahore, Pakistan. At the moment you need to decide — whether to go outside, commute, or send a child to school — it tells you how safe the air is where you are, with personalized guidance for every profile it supports: healthy adults, children, the elderly, pregnant women, people with asthma/COPD, and outdoor workers.
+For those decisions, you need to know two things: where you are, and who's
+breathing. SmogSense is a coordinate-based smog decision-support web app for
+Lahore, Pakistan. At the moment you need to decide — whether to go outside,
+commute, or send a child to school — it tells you how safe the air is where
+you are, with personalized guidance for every profile it supports: healthy
+adults, children, the elderly, pregnant women, people with asthma/COPD, and
+outdoor workers.
 
 **Stack:** Node 22 · Express · MongoDB (Mongoose) · Groq LLM · Firebase FCM · React 19 · Vite · Tailwind CSS 4
 
