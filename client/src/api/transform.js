@@ -138,6 +138,7 @@ export function toHazardStatus(raw) {
     explanation: rec.explanation,
     advice: rec.advice,
     location: toLocation(raw.station),
+    station: raw.station ?? null,
     source: toSource(raw.station?.source),
     updatedAt: raw.last_updated || new Date().toISOString(),
     weather: raw.weather ?? null,

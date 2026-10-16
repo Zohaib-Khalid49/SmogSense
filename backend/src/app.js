@@ -10,6 +10,7 @@ const hazardStatusRoutes = require('./routes/hazardStatus');
 const routeCheckRoutes = require('./routes/routeCheck');
 const profileRoutes = require('./routes/profiles');
 const alertRoutes = require('./routes/alerts');
+const userRoutes = require('./routes/users');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use('/', hazardStatusRoutes);
 app.use('/', routeCheckRoutes);
 app.use('/', profileRoutes);
 app.use('/', alertRoutes);
+app.use('/', userRoutes);
 
 // ── 404 handler ───────────────────────────────
 app.use((_req, res) => {

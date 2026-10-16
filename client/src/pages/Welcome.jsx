@@ -12,6 +12,8 @@ import LocationSearch from '@/components/LocationSearch'
 import { getLocation } from '@/lib/geolocation'
 import { loadUser, saveUser } from '@/lib/storage'
 import { cn } from '@/lib/utils'
+import { saveUser as saveUserApi } from '@/api/client'
+import { getUserId } from '@/lib/identity'
 
 /**
  * One-time Welcome / onboarding screen.
@@ -53,7 +55,7 @@ export default function Welcome() {
   const [name, setName] = useState('')
   const [home, setHome] = useState(null) // { label, lat, lng }
   const [detecting, setDetecting] = useState(false)
-  // Honest feedback for the GPS path: 'gps' | 'fallback' | null
+  // Honest feedback for the GPS path: 'gps' | 'outside' | 'fallback' | null
   const [detectResult, setDetectResult] = useState(null)
 
   async function handleUseMyLocation() {
@@ -61,9 +63,19 @@ export default function Welcome() {
     setDetectResult(null)
     try {
       const loc = await getLocation()
+      if (loc.source === 'outside') {
+        setHome(null)
+        setDetectResult('outside')
+        return
+      }
       const gotGps = loc.source === 'gps'
+      if (!gotGps) {
+        setHome(null)
+        setDetectResult('fallback')
+        return
+      }
       setHome({
-        label: gotGps ? 'My current location' : 'Central Lahore (default)',
+        label: 'My current location',
         lat: loc.lat,
         lng: loc.lng,
       })
@@ -83,14 +95,24 @@ export default function Welcome() {
     setDetectResult(null)
   }
 
-  function handleContinue() {
+  async function handleContinue() {
     const existing = loadUser()
-    saveUser({
+    const user = {
       ...existing,
       name: name.trim(),
       home,
       onboarded: true,
-    })
+    }
+    saveUser(user)
+    try {
+      await saveUserApi({
+        userId: getUserId(),
+        name: user.name,
+        home: user.home,
+      })
+    } catch {
+      // Keep onboarding usable offline; profile sync reports server errors separately.
+    }
     navigate('/')
   }
 
@@ -175,6 +197,12 @@ export default function Welcome() {
               <p className="px-1 text-xs text-caution">
                 Couldn&apos;t detect your location — defaulting to central
                 Lahore. Search above to set your exact area.
+              </p>
+            )}
+            {detectResult === 'outside' && (
+              <p className="px-1 text-xs text-caution">
+                SmogSense currently supports Lahore only. Search for a Lahore
+                area to set a supported home location.
               </p>
             )}
           </div>

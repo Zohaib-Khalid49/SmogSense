@@ -78,10 +78,17 @@ router.get('/route-check', queryValidator, async (req, res, next) => {
       });
     }
 
+    // Keep route comparisons consistent with /hazard-status: compare the
+    // 24-hour average when available, rather than comparing one raw hourly
+    // reading against a dashboard average.
+    const effectivePm25 = (result) =>
+      result?.averaging?.pm25 ?? result?.reading?.pm25 ?? 0;
+
     // ── Build route objects ───────────────────
     const primaryRoute = originResult
       ? {
-          pm25: originResult.reading.pm25,
+          pm25: effectivePm25(originResult),
+          pm25_current: originResult.reading.pm25,
           confidence: calculateConfidence({
             distanceKm: originResult.distanceKm,
             freshnessMs: originResult.freshnessMs,
@@ -93,7 +100,8 @@ router.get('/route-check', queryValidator, async (req, res, next) => {
 
     const alternateRoute = destResult
       ? {
-          pm25: destResult.reading.pm25,
+          pm25: effectivePm25(destResult),
+          pm25_current: destResult.reading.pm25,
           confidence: calculateConfidence({
             distanceKm: destResult.distanceKm,
             freshnessMs: destResult.freshnessMs,
@@ -118,12 +126,14 @@ router.get('/route-check', queryValidator, async (req, res, next) => {
         primary_route: {
           band: comparison.primaryBand,
           pm25: primaryRoute.pm25,
+          pm25_current: primaryRoute.pm25_current,
           confidence: primaryRoute.confidence,
           recommendation_key: primaryRec.key,
         },
         alternate_route: {
           band: comparison.alternateBand,
           pm25: alternateRoute.pm25,
+          pm25_current: alternateRoute.pm25_current,
           confidence: alternateRoute.confidence,
           recommendation_key: alternateRec.key,
         },

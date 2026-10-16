@@ -80,6 +80,12 @@ export function saveUser(user) {
   localStorage.setItem(USER_KEY, JSON.stringify(user))
 }
 
+export function clearUser() {
+  localStorage.removeItem(USER_KEY)
+  localStorage.removeItem('smogsense_user_id')
+  localStorage.removeItem('smogsense_profiles')
+}
+
 /**
  * Whether the user has completed the one-time welcome/onboarding step.
  * @returns {boolean}

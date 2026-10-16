@@ -24,14 +24,21 @@ router.post('/profiles', createValidator, async (req, res, next) => {
   try {
     const { user_id, category, name, age, alerts_enabled, fcm_token } = req.body;
 
-    // If fcm_token is provided, upsert the user
+    // Every profile belongs to a user, even when push notifications have not
+    // been enabled. Create the identity record first; the FCM token is
+    // optional and can be added later by /alerts/register-device.
+    const userUpdate = { $setOnInsert: {} };
     if (fcm_token) {
-      await User.findOneAndUpdate(
-        { _id: user_id },
-        { $set: { fcm_token, fcm_token_updated_at: new Date() } },
-        { upsert: true, new: true },
-      );
+      userUpdate.$set = {
+        fcm_token,
+        fcm_token_updated_at: new Date(),
+      };
     }
+    await User.findOneAndUpdate(
+      { _id: user_id },
+      userUpdate,
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
 
     // Upsert profile — one per user_id + category to prevent duplicates
     const profile = await Profile.findOneAndUpdate(

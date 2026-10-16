@@ -8,10 +8,16 @@ const userSchema = new Schema(
       type: String,
       required: true,
     },
+    name: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     fcm_token: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
+      default: null,
     },
     fcm_token_updated_at: {
       type: Date,
@@ -38,7 +44,7 @@ const userSchema = new Schema(
 
 // ── Indexes ────────────────────────────────────
 // Lookup by FCM token for push delivery
-userSchema.index({ fcm_token: 1 });
+userSchema.index({ fcm_token: 1 }, { sparse: true });
 // Geo queries: find users near a location (e.g. location-based alerts)
 userSchema.index({ location: '2dsphere' });
 

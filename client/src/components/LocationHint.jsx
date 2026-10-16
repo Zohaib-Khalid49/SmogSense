@@ -17,7 +17,7 @@ import { locationHelpText } from '@/lib/platform'
  *
  * @param {Object} props
  * @param {string} props.hint - the hint text from geolocation.getLocation()
- * @param {'gps'|'cached'|'fallback'} props.source
+ * @param {'gps'|'cached'|'saved'|'fallback'|'outside'} props.source
  * @param {() => void} [props.onRetry] - re-request location; shows a CTA when provided
  * @param {boolean} [props.retrying] - show a spinner while a retry is in flight
  * @param {string} [props.className]

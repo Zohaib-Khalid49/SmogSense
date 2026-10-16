@@ -15,6 +15,7 @@ import { searchPlaces } from '@/lib/geocode'
  * @param {string} props.placeholder
  * @param {(place: { label: string, lat: number, lng: number }) => void} props.onSelect
  * @param {{ label: string } | null} [props.selected] - currently selected place (for display)
+ * @param {() => void} [props.onEdit] - called when the selected place is edited
  * @param {() => void} [props.onUseCurrentLocation] - if provided, shows a GPS
  *   button inside the input's trailing edge (saves a separate button/row)
  * @param {boolean} [props.locating] - spinner state for the GPS button
@@ -23,6 +24,7 @@ export default function LocationSearch({
   placeholder,
   onSelect,
   selected,
+  onEdit,
   onUseCurrentLocation,
   locating = false,
 }) {
@@ -73,7 +75,7 @@ export default function LocationSearch({
 
   function handlePick(place) {
     onSelect(place)
-    setQuery('')
+    setQuery(place.label)
     setResults([])
     setOpen(false)
   }
@@ -83,8 +85,11 @@ export default function LocationSearch({
       <Navigation className="absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground" />
       <input
         type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        value={query || selected?.label || ''}
+        onChange={(e) => {
+          onEdit?.()
+          setQuery(e.target.value)
+        }}
         onFocus={() => results.length > 0 && setOpen(true)}
         placeholder={selected ? selected.label : placeholder}
         className={cn(

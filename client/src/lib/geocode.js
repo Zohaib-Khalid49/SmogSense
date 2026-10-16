@@ -10,6 +10,8 @@
  */
 
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
+const REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
+const reverseCache = new Map()
 
 // Lahore bounding box (matches backend bounds): lng,lat pairs for viewbox
 // viewbox = left(lngMin),top(latMax),right(lngMax),bottom(latMin)
@@ -58,6 +60,53 @@ export async function searchPlaces(query, signal) {
     lat: parseFloat(item.lat),
     lng: parseFloat(item.lon),
   }))
+}
+
+/**
+ * Resolve GPS coordinates to a short area label.
+ *
+ * Results are cached by rounded coordinates so dashboard refreshes do not
+ * repeatedly call Nominatim for the same position.
+ *
+ * @param {number} lat
+ * @param {number} lng
+ * @returns {Promise<string|null>}
+ */
+export async function getAreaLabel(lat, lng) {
+  const key = `${lat.toFixed(3)},${lng.toFixed(3)}`
+  if (reverseCache.has(key)) return reverseCache.get(key)
+
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lng),
+    format: 'json',
+    addressdetails: '1',
+    zoom: '14',
+  })
+
+  try {
+    const res = await fetch(`${REVERSE_URL}?${params.toString()}`, {
+      headers: { Accept: 'application/json' },
+    })
+    if (!res.ok) return null
+
+    const data = await res.json()
+    const address = data.address || {}
+    const area =
+      address.suburb ||
+      address.neighbourhood ||
+      address.quarter ||
+      address.village ||
+      address.town ||
+      address.city_district ||
+      address.city ||
+      null
+
+    if (area) reverseCache.set(key, area)
+    return area
+  } catch {
+    return null
+  }
 }
 
 /**

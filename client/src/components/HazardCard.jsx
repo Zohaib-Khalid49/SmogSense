@@ -27,7 +27,7 @@ const BAND_ICON = {
 /**
  * The hero of the app — a glanceable "what to do" card.
  *
- * Shows: band + short action headline, a few short action chips (the
+ * Shows: user location + data source, band + short action headline, a few short action chips (the
  * actionable guidance), PM2.5 + confidence, and an expandable "Why?".
  */
 export default function HazardCard({ status }) {
@@ -40,6 +40,7 @@ export default function HazardCard({ status }) {
     recommendation,
     explanation,
     location,
+    userLocation,
     updatedAt,
     fetchedAt,
   } = status
@@ -93,9 +94,12 @@ export default function HazardCard({ status }) {
         />
 
         <Icon className="size-10 drop-shadow-md" strokeWidth={1.8} aria-hidden="true" />
-        <p className="text-xs font-medium tracking-wide opacity-90">
-          {location}
-        </p>
+        <div className="flex flex-col items-center gap-0.5 text-xs font-medium tracking-wide opacity-90">
+          <span>{userLocation || 'Your location'}</span>
+          <span className="text-[11px] opacity-80">
+            Data from {location || 'Lahore monitoring data'}
+          </span>
+        </div>
         <h2 className="text-4xl font-extrabold tracking-tight drop-shadow-sm">
           {cfg.label}
         </h2>

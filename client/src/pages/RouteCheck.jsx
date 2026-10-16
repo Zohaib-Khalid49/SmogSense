@@ -17,6 +17,7 @@ import { BAND_CONFIG, BAND_HEX, NEUTRAL_HEX } from '@/lib/hazard'
 import { getRouteCheck } from '@/api/client'
 import { getLocation, LAHORE_CENTER } from '@/lib/geolocation'
 import { getHomeLocation } from '@/lib/storage'
+import { getAreaLabel } from '@/lib/geocode'
 import LocationSearch from '@/components/LocationSearch'
 import LocationHint from '@/components/LocationHint'
 import StatusMessage from '@/components/StatusMessage'
@@ -41,6 +42,8 @@ function bandMarker(band) {
 function originLabel(loc) {
   if (loc.source === 'gps') return 'Your location'
   if (loc.source === 'cached') return 'Your location (last known)'
+  if (loc.source === 'outside') return 'Outside Lahore'
+  if (loc.source === 'saved') return 'Your saved home area'
   if (loc.lat === LAHORE_CENTER.lat && loc.lng === LAHORE_CENTER.lng) {
     return 'Central Lahore'
   }
@@ -64,9 +67,10 @@ export default function RouteCheck() {
 
   // Apply a detected position as the origin, with an honest label for how
   // it was obtained (gps / last known / saved home / central Lahore).
-  const applyOrigin = useCallback((loc) => {
+  const applyOrigin = useCallback(async (loc) => {
+    const area = await getAreaLabel(loc.lat, loc.lng)
     setOrigin({
-      label: originLabel(loc),
+      label: `${originLabel(loc)}: ${area || `${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)}`}`,
       lat: loc.lat,
       lng: loc.lng,
       hint: loc.hint,
@@ -94,7 +98,8 @@ export default function RouteCheck() {
       .finally(() => setLocating(false))
   }
 
-  const canCompare = origin && destination && !loading
+  const canCompare =
+    origin && origin.source !== 'outside' && destination && !loading
 
   function handleCompare(e) {
     e.preventDefault()
@@ -163,6 +168,7 @@ export default function RouteCheck() {
     const destPm = destRoute.pm25
     const diff = Math.abs(originPm - destPm)
     const meaningful = data.meaningfulDifference === true
+    const reliable = data.reliable !== false
 
     // Direction is framed around the destination the user wants to visit.
     let tone // 'destCleaner' | 'destWorse' | 'similar'
@@ -181,10 +187,22 @@ export default function RouteCheck() {
       tone = 'destWorse'
       title = `Air is worse in ${destination.label} right now`
       detail = `PM2.5 is about ${diff} µg/m³ higher there than where you are. If your trip can wait, consider going when the air improves — or mask up and limit time outdoors.`
+    } else if (diff > 0 && !reliable) {
+      tone = destPm < originPm ? 'destCleaner' : 'destWorse'
+      title = destPm < originPm
+        ? `Air is better in ${destination.label}`
+        : `Air is worse in ${destination.label}`
+      detail = destPm < originPm
+        ? 'The air is cleaner there. Consider traffic and convenience before you go.'
+        : 'The air is more polluted there. Consider traffic and convenience before you go.'
+    } else if (diff > 0) {
+      tone = 'similar'
+      title = `Air quality differs slightly`
+      detail = `${destination.label} is ${destPm} µg/m³ PM2.5 versus ${originPm} µg/m³ where you are (${diff} µg/m³ difference). Choose based on the size of the difference, traffic, and convenience.`
     } else {
       tone = 'similar'
       title = 'Air quality is about the same'
-      detail = `${destination.label} reads similar to where you are right now, so air quality isn't a reason to delay. Choose based on traffic and convenience.`
+      detail = `${destination.label} and your current location both read ${originPm} µg/m³ PM2.5. Choose based on traffic and convenience.`
     }
 
     return { tone, title, detail, destRoute, originRoute }
@@ -193,6 +211,7 @@ export default function RouteCheck() {
   const verdictColor = {
     destCleaner: 'border-safe/30 bg-safe/5',
     destWorse: 'border-caution/30 bg-caution/5',
+    uncertain: 'border-caution/30 bg-caution/5',
     similar: 'border-border bg-muted/40',
   }
 
@@ -228,11 +247,21 @@ export default function RouteCheck() {
           retrying={locating}
         />
 
+        {origin?.source === 'outside' && (
+          <StatusMessage
+            type="location"
+            message="Route comparison is available within Lahore only."
+            hint="Choose a Lahore destination or move to Lahore before comparing air quality."
+            onRetry={handleLocRetry}
+          />
+        )}
+
         {/* Destination — autocomplete search */}
         <LocationSearch
           placeholder="Compare with… (e.g. Johar Town)"
           selected={destination}
           onSelect={setDestination}
+          onEdit={() => setDestination(null)}
         />
 
         <Button

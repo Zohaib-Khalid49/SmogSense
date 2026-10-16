@@ -26,6 +26,28 @@ function isNetworkError(err) {
   return err?.code === 'NETWORK_ERROR' || err?.code === 'TIMEOUT'
 }
 
+function getRouteCacheKey(opts) {
+  return [
+    'route_check',
+    opts.originLat,
+    opts.originLng,
+    opts.destLat,
+    opts.destLng,
+    opts.profileCategory || 'adult',
+  ].join('_')
+}
+
+function getHazardCacheKey(opts) {
+  return [
+    'hazard_status',
+    opts.lat,
+    opts.lng,
+    opts.profileCategory || 'adult',
+    opts.age || '',
+    opts.subDetail || '',
+  ].join('_')
+}
+
 // ─── Hazard Status ───────────────────────────────────────────────────
 
 /**
@@ -43,6 +65,8 @@ export async function getHazardStatus({ lat, lng, profileCategory, age, subDetai
     const result = await mock.getHazardStatus({ band })
     return { ...result, fetchedAt: new Date().toISOString() }
   }
+
+  const cacheKey = getHazardCacheKey({ lat, lng, profileCategory, age, subDetail })
 
   try {
     const { data, noData } = await http.get('/hazard-status', {
@@ -62,13 +86,13 @@ export async function getHazardStatus({ lat, lng, profileCategory, age, subDetai
     result.fetchedAt = new Date().toISOString()
 
     // Cache successful response for offline fallback
-    cacheResponse('hazard_status', result)
+    cacheResponse(cacheKey, result)
 
     return result
   } catch (err) {
     // On network error, try cached response
     if (isNetworkError(err)) {
-      const cached = getCachedResponse('hazard_status')
+      const cached = getCachedResponse(cacheKey)
       if (cached) {
         return { ...cached.data, isStale: true, cachedAt: cached.cachedAt }
       }
@@ -96,6 +120,31 @@ export async function listProfiles(userId) {
   // Backend has no DELETE — "removed" profiles are disabled (alerts_enabled:false).
   // Treat disabled profiles as deleted so they don't reappear in the UI.
   return transform.toProfiles(data).filter((p) => p.alertsEnabled !== false)
+}
+
+/**
+ * Create or update the person who owns the profiles.
+ */
+export async function saveUser({ userId, name, home } = {}) {
+  if (USE_MOCKS) return { id: userId, name, home }
+
+  const { data } = await http.put(`/users/${userId}`, {
+    user_id: userId,
+    name: name || '',
+    location: home
+      ? {
+          type: 'Point',
+          coordinates: [home.lng, home.lat],
+        }
+      : undefined,
+  })
+
+  return data
+}
+
+export async function deleteUser(userId) {
+  if (USE_MOCKS) return
+  await http.del(`/users/${userId}`)
 }
 
 /**
@@ -184,6 +233,8 @@ export async function getRouteCheck(opts = {}) {
     return mock.getRouteComparison()
   }
 
+  const cacheKey = getRouteCacheKey(opts)
+
   try {
     const { data, noData } = await http.get('/route-check', {
       origin_lat: opts.originLat,
@@ -197,13 +248,13 @@ export async function getRouteCheck(opts = {}) {
     const result = transform.toRouteComparison(data)
 
     // Cache successful response for offline fallback
-    cacheResponse('route_check', result)
+    cacheResponse(cacheKey, result)
 
     return result
   } catch (err) {
     // On network error, try cached response
     if (isNetworkError(err)) {
-      const cached = getCachedResponse('route_check')
+      const cached = getCachedResponse(cacheKey)
       if (cached) {
         return { ...cached.data, isStale: true, cachedAt: cached.cachedAt }
       }

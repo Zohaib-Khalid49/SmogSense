@@ -14,6 +14,7 @@ import LocationHint from '@/components/LocationHint'
 import StatusMessage from '@/components/StatusMessage'
 import { getHazardStatus, listProfiles } from '@/api/client'
 import { getLocation } from '@/lib/geolocation'
+import { getAreaLabel } from '@/lib/geocode'
 import { getUserId } from '@/lib/identity'
 import { getUserMessage } from '@/api/apiError'
 import { loadProfiles, loadUser } from '@/lib/storage'
@@ -36,6 +37,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [noData, setNoData] = useState(false)
+  const [unsupportedLocation, setUnsupportedLocation] = useState(false)
 
   // Geolocation
   const [geo, setGeo] = useState(null)
@@ -132,6 +134,13 @@ export default function Home() {
       setLoading(true)
       setError(null)
       setNoData(false)
+      setUnsupportedLocation(currentGeo?.source === 'outside')
+
+      if (currentGeo?.source === 'outside') {
+        setStatus(null)
+        setLoading(false)
+        return
+      }
 
       try {
         const result = await getHazardStatus({
@@ -151,7 +160,21 @@ export default function Home() {
           setNoData(true)
           setStatus(null)
         } else {
-          setStatus(result)
+          const area = await getAreaLabel(currentGeo.lat, currentGeo.lng)
+          if (abortRef.current) return
+          const coordinates = `${currentGeo.lat.toFixed(4)}, ${currentGeo.lng.toFixed(4)}`
+          const locationName = area || coordinates
+          setStatus({
+            ...result,
+            userLocation:
+              currentGeo.source === 'gps'
+                ? `Your current location: ${locationName}`
+                : currentGeo.source === 'cached'
+                  ? `Last known location: ${locationName}`
+                  : currentGeo.source === 'saved'
+                    ? `Saved home area: ${locationName}`
+                    : `Central Lahore fallback (${locationName})`,
+          })
         }
       } catch (err) {
         if (abortRef.current) return
@@ -327,7 +350,16 @@ export default function Home() {
         />
       )}
 
-      {noData && !loading && (
+      {unsupportedLocation && !loading && (
+        <StatusMessage
+          type="location"
+          message="This location is outside SmogSense coverage."
+          hint="SmogSense currently supports Lahore only. Move to Lahore or choose a Lahore area during setup to view supported air-quality data."
+          onRetry={refresh}
+        />
+      )}
+
+      {noData && !loading && !unsupportedLocation && (
         <StatusMessage
           type="noData"
           message="No air quality readings yet."

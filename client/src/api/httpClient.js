@@ -53,6 +53,18 @@ export async function patch(path, body) {
 }
 
 /**
+ * Make a PUT request to the backend.
+ *
+ * @param {string} path - e.g. '/users/:id'
+ * @param {any} body - JSON body
+ * @returns {Promise<{ data: any, meta?: any, noData: boolean }>}
+ * @throws {ApiError}
+ */
+export async function put(path, body) {
+  return request('PUT', path, {}, body)
+}
+
+/**
  * Make a DELETE request to the backend.
  *
  * @param {string} path - e.g. '/profiles/:id'
@@ -64,7 +76,7 @@ export async function del(path) {
 }
 
 /**
- * Core request function. Not exported — use get/post/patch above.
+ * Core request function. Not exported — use the exported HTTP methods above.
  */
 async function request(method, path, params = {}, body = undefined) {
   const url = buildUrl(path, params)

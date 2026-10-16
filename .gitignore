@@ -2,9 +2,6 @@
 Cosmetic Guy.md
 wiki/Backend-Client-Integration.md
 SmogSense_Application_Specification*.md
-wiki/
-**/tests/
-**/vitest.config.js
 
 # ---- Dependencies ----
 node_modules/
@@ -14,6 +11,8 @@ node_modules/
 .env.local
 .env.development
 .env.*.local
+**/.env.*
+!**/.env.example
 **/.env
 **/.env.local
 **/.env.development
@@ -55,4 +54,13 @@ Thumbs.db
 *.local
 .cache/
 coverage/
-README.md
+*.eslintcache
+.eslintcache
+.vite/
+.turbo/
+.parcel-cache/
+*.tsbuildinfo
+*.pem
+*.key
+backend/tests/
+backend/vitest.config.js

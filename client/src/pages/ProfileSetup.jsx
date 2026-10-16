@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, Check, Loader2, WifiOff } from 'lucide-react'
+import { ChevronRight, Check, Loader2, WifiOff, UserRound, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import ProfileCard from '@/components/ProfileCard'
 import SubDetailPicker from '@/components/SubDetailPicker'
 import ProfileList from '@/components/ProfileList'
 import { PROFILE_TYPES, getProfileType, MAX_PROFILES, validateAge } from '@/lib/profiles'
-import { loadProfiles, saveProfiles } from '@/lib/storage'
-import { createProfile, listProfiles } from '@/api/client'
+import { loadProfiles, saveProfiles, loadUser, saveUser, clearUser } from '@/lib/storage'
+import {
+  createProfile,
+  deleteProfile,
+  deleteUser,
+  listProfiles,
+  saveUser as saveUserApi,
+} from '@/api/client'
 import { getUserId } from '@/lib/identity'
+import LocationSearch from '@/components/LocationSearch'
 
 /**
  * Steps:
@@ -61,6 +68,10 @@ export default function ProfileSetup() {
   const [isOnline, setIsOnline] = useState(
     () => typeof navigator !== 'undefined' ? navigator.onLine : true
   )
+  const [userName, setUserName] = useState(() => loadUser().name)
+  const [home, setHome] = useState(() => loadUser().home)
+  const [userSaving, setUserSaving] = useState(false)
+  const [userError, setUserError] = useState(null)
 
   const selectedType = getProfileType(selectedId)
   const hasSubDetails = selectedType?.subDetails != null
@@ -96,6 +107,12 @@ export default function ProfileSetup() {
       let loaded
       try {
         const userId = getUserId()
+        const user = loadUser()
+        await saveUserApi({
+          userId,
+          name: user.name,
+          home: user.home,
+        })
         const backendProfiles = await listProfiles(userId)
         loaded = backendProfiles.length > 0 ? backendProfiles : loadProfiles()
       } catch {
@@ -112,6 +129,37 @@ export default function ProfileSetup() {
 
   function handleSelectProfile(id) {
     setSelectedId(id)
+  }
+
+  async function handleSaveUser(e) {
+    e.preventDefault()
+    setUserSaving(true)
+    setUserError(null)
+    const user = { ...loadUser(), name: userName.trim(), home }
+    saveUser(user)
+    try {
+      await saveUserApi({ userId: getUserId(), name: user.name, home })
+    } catch {
+      setUserError('Could not save your details to the server.')
+    } finally {
+      setUserSaving(false)
+    }
+  }
+
+  async function handleDeleteUser() {
+    if (!window.confirm('Delete your name, location, and all health profiles? This cannot be undone.')) {
+      return
+    }
+    setUserSaving(true)
+    setUserError(null)
+    try {
+      await deleteUser(getUserId())
+      clearUser()
+      navigate('/welcome', { replace: true })
+    } catch {
+      setUserError('Could not delete your data from the server.')
+      setUserSaving(false)
+    }
   }
 
   function handleNext() {
@@ -217,20 +265,23 @@ export default function ProfileSetup() {
     setStep('select')
   }
 
-  function handleRemoveProfile(index) {
+  async function handleRemoveProfile(index) {
     const profile = profiles[index]
-    const updated = profiles.filter((_, i) => i !== index)
-    setProfiles(updated)
-    saveProfiles(updated)
-
     // Permanently delete the backend profile (live mode).
     // Backend profileIds are 24-char Mongo ObjectIds; mock ids look like "child_123".
     const isBackendId = /^[a-f\d]{24}$/i.test(profile?.profileId || '')
     if (isBackendId) {
-      import('@/api/client').then(({ deleteProfile }) => {
-        deleteProfile(profile.profileId).catch(() => {})
-      })
+      try {
+        await deleteProfile(profile.profileId)
+      } catch {
+        setError('Could not delete this profile from the server. Please try again.')
+        return
+      }
     }
+
+    const updated = profiles.filter((_, i) => i !== index)
+    setProfiles(updated)
+    saveProfiles(updated)
 
     if (updated.length === 0) {
       setStep('select')
@@ -274,6 +325,43 @@ export default function ProfileSetup() {
           ))}
         </div>
       </header>
+
+      <section className="rounded-2xl border border-border bg-card p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <UserRound className="size-4 text-primary" />
+          <h2 className="font-semibold">Your details</h2>
+        </div>
+        <form onSubmit={handleSaveUser} className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5 text-sm">
+            Name
+            <input
+              value={userName}
+              onChange={(e) => setUserName(e.target.value)}
+              placeholder="Your name"
+              className="rounded-lg border border-input bg-background px-3 py-2.5"
+            />
+          </label>
+          <LocationSearch
+            placeholder="Search your area"
+            selected={home}
+            onSelect={setHome}
+            onEdit={() => setHome(null)}
+          />
+          {userError && <p className="text-sm text-destructive">{userError}</p>}
+          <Button type="submit" disabled={userSaving}>
+            {userSaving ? <Loader2 className="size-4 animate-spin" /> : 'Save details'}
+          </Button>
+        </form>
+        <button
+          type="button"
+          onClick={handleDeleteUser}
+          disabled={userSaving}
+          className="mt-3 inline-flex items-center gap-1.5 text-sm text-destructive hover:underline disabled:opacity-50"
+        >
+          <Trash2 className="size-3.5" />
+          Delete my data
+        </button>
+      </section>
 
       {/* Step: select profile type */}
       {step === 'select' && (

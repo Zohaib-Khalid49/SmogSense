@@ -2,8 +2,8 @@
  * Geolocation module for SmogSense.
  *
  * - Gets the user's GPS coordinates via the Browser Geolocation API
- * - Falls back to central Lahore (31.5204, 74.3587) if permission denied,
- *   timeout, or coordinates are outside Lahore bounds
+ * - Falls back to central Lahore (31.5204, 74.3587) if permission denied
+ *   or timeout occurs
  * - Persists last accepted position in localStorage
  * - Returns a status flag so the UI can show a hint when using fallback
  *
@@ -30,7 +30,7 @@ const LAHORE_BOUNDS = {
  * @typedef {Object} GeoResult
  * @property {number} lat
  * @property {number} lng
- * @property {'gps'|'cached'|'fallback'} source - how the position was obtained
+ * @property {'gps'|'cached'|'saved'|'fallback'|'outside'} source - how the position was obtained
  * @property {string|null} hint - user-facing hint when not using live GPS
  */
 
@@ -82,7 +82,7 @@ function fallbackResult(fallbackHint) {
     return {
       lat: home.lat,
       lng: home.lng,
-      source: 'fallback',
+      source: 'saved',
       hint: `Showing your saved area (${home.label || 'home'}).`,
     }
   }
@@ -94,8 +94,8 @@ function fallbackResult(fallbackHint) {
  *
  * Priority:
  * 1. Live GPS (if permission granted + within Lahore)
- * 2. Cached last-known position (from localStorage)
- * 3. Fallback to Lahore center
+ * 2. Cached last-known position (from localStorage) when GPS is unavailable
+ * 3. Saved home area, then central Lahore
  *
  * @returns {Promise<GeoResult>}
  */
@@ -107,7 +107,7 @@ export async function getLocation() {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: false,
           timeout: TIMEOUT_MS,
-          maximumAge: 5 * 60 * 1000, // accept a 5-min cached reading
+          maximumAge: 0, // require a fresh browser location, not a stale GPS fix
         })
       })
 
@@ -119,10 +119,13 @@ export async function getLocation() {
         return { lat, lng, source: 'gps', hint: null }
       }
 
-      // Outside Lahore — fall back but tell the user
-      return fallbackResult(
-        'You appear to be outside Lahore — showing central Lahore data.',
-      )
+      // Do not silently show Lahore data for someone outside the supported area.
+      return {
+        lat,
+        lng,
+        source: 'outside',
+        hint: 'SmogSense currently supports Lahore only.',
+      }
     } catch (err) {
       // Permission denied or timeout — try cache, then fallback
       const cached = loadCachedPosition()
