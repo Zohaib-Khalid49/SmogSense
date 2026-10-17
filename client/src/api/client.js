@@ -296,12 +296,12 @@ export async function registerDevice({ profileId, fcmToken }) {
  *
  * @returns {Promise<Object>}
  */
-export async function getAlertDetail() {
+export async function getAlertDetail({ lat, lng } = {}) {
   if (USE_MOCKS) {
     return mock.getAlertDetail()
   }
 
-  const { data } = await http.get(`/alerts/${getUserId()}`)
+  const { data } = await http.get(`/alerts/${getUserId()}`, { lat, lng })
   return transform.toAlert(data)
 }
 

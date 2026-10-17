@@ -47,7 +47,10 @@ async function evaluateAlerts() {
     return summary;
   }
 
-  const pm25 = readingResult.reading.pm25;
+  const pm25 =
+    readingResult.averaging && readingResult.averaging.pm25 !== null
+      ? readingResult.averaging.pm25
+      : readingResult.reading.pm25;
 
   // ── 2. Load opted-in profiles ────────────────
   const profiles = await Profile.find({ alerts_enabled: true }).lean();

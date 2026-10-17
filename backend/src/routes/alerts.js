@@ -20,25 +20,8 @@ const userIdParamValidator = validateParams({
 
 router.get('/alerts/:user_id', userIdParamValidator, async (req, res, next) => {
   try {
-    const alert = await Alert.findOne({ user_id: req.params.user_id })
-      .sort({ created_at: -1 })
-      .lean();
-
-    if (alert) {
-      return res.json({
-        success: true,
-        data: {
-          id: alert._id,
-          profile_ids: alert.profile_ids,
-          severity: alert.severity,
-          hazard_band: alert.hazard_band,
-          pm25_value: alert.pm25_value,
-          message: alert.message,
-          triggered_at: alert.created_at,
-        },
-      });
-    }
-
+    const lat = req.query.lat ? Number(req.query.lat) : config.lahore.center.lat;
+    const lng = req.query.lng ? Number(req.query.lng) : config.lahore.center.lng;
     // The scheduler may not have run yet (or push delivery may have failed).
     // Evaluate the current opted-in profiles so the Alerts tab still reflects
     // a hazardous condition shown on the Home page.
@@ -47,31 +30,52 @@ router.get('/alerts/:user_id', userIdParamValidator, async (req, res, next) => {
       alerts_enabled: true,
     }).lean();
     const readingResult = await findNearestReading(
-      config.lahore.center.lat,
-      config.lahore.center.lng,
+      lat,
+      lng,
     );
     if (!readingResult || profiles.length === 0) {
       return res.json({ success: true, data: null });
     }
 
     const pm25 = readingResult.reading.pm25;
+    const effectivePm25 =
+      readingResult.averaging && readingResult.averaging.pm25 !== null
+        ? readingResult.averaging.pm25
+        : pm25;
     const hazardousProfiles = profiles.filter(
-      (profile) => getHazardBand(pm25, profile.category) === 'hazardous',
+      (profile) => getHazardBand(effectivePm25, profile.category) === 'hazardous',
     );
-    if (hazardousProfiles.length === 0) {
-      return res.json({ success: true, data: null });
+
+    if (hazardousProfiles.length > 0) {
+      return res.json({
+        success: true,
+        data: {
+          id: `current_${Date.now()}`,
+          profile_ids: hazardousProfiles.map((profile) => profile._id),
+          severity: effectivePm25 > 225.4 ? 'danger' : 'warning',
+          hazard_band: 'hazardous',
+          pm25_value: effectivePm25,
+          message: 'Air quality is hazardous for one or more of your profiles. Stay indoors with windows closed.',
+          triggered_at: new Date().toISOString(),
+        },
+      });
     }
+
+    const alert = await Alert.findOne({ user_id: req.params.user_id })
+      .sort({ created_at: -1 })
+      .lean();
+    if (!alert) return res.json({ success: true, data: null });
 
     res.json({
       success: true,
       data: {
-        id: `current_${Date.now()}`,
-        profile_ids: hazardousProfiles.map((profile) => profile._id),
-        severity: pm25 > 225.4 ? 'danger' : 'warning',
-        hazard_band: 'hazardous',
-        pm25_value: pm25,
-        message: 'Air quality is hazardous for one or more of your profiles. Stay indoors with windows closed.',
-        triggered_at: new Date().toISOString(),
+        id: alert._id,
+        profile_ids: alert.profile_ids,
+        severity: alert.severity,
+        hazard_band: alert.hazard_band,
+        pm25_value: alert.pm25_value,
+        message: alert.message,
+        triggered_at: alert.created_at,
       },
     });
   } catch (err) {

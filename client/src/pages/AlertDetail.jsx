@@ -18,6 +18,7 @@ import {
   formatUpdatedAt,
 } from '@/lib/hazard'
 import { getAlertDetail, getHazardStatus } from '@/api/client'
+import { getLocation } from '@/lib/geolocation'
 import {
   getAlertPayload,
   onForegroundMessage,
@@ -73,7 +74,11 @@ export default function AlertDetail() {
 
     // Try to get fresh hazard data for richer display
     try {
-      const liveStatus = await getHazardStatus({})
+      const location = await getLocation()
+      const liveStatus = await getHazardStatus({
+        lat: location.lat,
+        lng: location.lng,
+      })
       if (liveStatus) {
         return {
           ...base,
@@ -104,7 +109,11 @@ export default function AlertDetail() {
       }
 
       // 2. Fall back to mock API (or null in live mode)
-      const data = await getAlertDetail()
+      const location = await getLocation()
+      const data = await getAlertDetail({
+        lat: location.lat,
+        lng: location.lng,
+      })
       if (!active) return
       if (data === null) {
         setNoAlert(true)
