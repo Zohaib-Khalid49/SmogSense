@@ -145,6 +145,27 @@ export function toHazardStatus(raw) {
   }
 }
 
+// ─── Alert ───────────────────────────────────────────────────────────
+
+/**
+ * Transform a stored backend alert into the shape used by AlertDetail.
+ */
+export function toAlert(raw) {
+  if (!raw) return null
+
+  return {
+    id: raw.id ?? raw._id,
+    reason: raw.message || 'Air quality has worsened for one or more of your profiles.',
+    band: toBand(raw.hazard_band ?? raw.band),
+    triggeredAt: raw.triggered_at || raw.created_at || new Date().toISOString(),
+    type: 'threshold_change',
+    pm25: raw.pm25_value ?? null,
+    confidence: 'medium',
+    recommendation: '',
+    location: 'Lahore',
+  }
+}
+
 // ─── Profile Category ─────────────────────────────────────────────────
 
 /**

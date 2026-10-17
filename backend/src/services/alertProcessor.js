@@ -132,6 +132,7 @@ async function evaluateAlerts() {
       data: {
         type: 'hazard_alert',
         severity: alertData.severity,
+        hazard_band: alertData.band,
         profile_ids: JSON.stringify(alertData.profileIds),
         timestamp: new Date().toISOString(),
       },

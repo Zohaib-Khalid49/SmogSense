@@ -8,7 +8,7 @@ node_modules/
 
 # ---- Environment / secrets ----
 .env
-.env.local
+.env.localcl
 .env.development
 .env.*.local
 **/.env.*

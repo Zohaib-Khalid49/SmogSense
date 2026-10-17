@@ -30,7 +30,9 @@ import {
  */
 function bandFromPayload(data) {
   // Backend sends hazard_band in data payload
-  if (data.band) return data.band
+  if (data.band === 'hazardous' || data.hazard_band === 'hazardous') return 'hazard'
+  if (data.band === 'safe' || data.hazard_band === 'safe') return 'safe'
+  if (data.band === 'caution' || data.hazard_band === 'caution') return 'caution'
   if (data.severity === 'danger') return 'hazard'
   if (data.severity === 'warning') return 'hazard'
   if (data.severity === 'caution') return 'caution'
@@ -75,7 +77,6 @@ export default function AlertDetail() {
       if (liveStatus) {
         return {
           ...base,
-          band: liveStatus.band || base.band,
           pm25: liveStatus.pm25 ?? base.pm25,
           confidence: liveStatus.confidence ?? base.confidence,
           recommendation: liveStatus.recommendation || base.recommendation,

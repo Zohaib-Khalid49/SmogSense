@@ -16,6 +16,7 @@ import * as http from './httpClient'
 import * as transform from './transform'
 import * as mock from './mockApi'
 import { cacheResponse, getCachedResponse } from '@/lib/cache'
+import { getUserId } from '@/lib/identity'
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'
 
@@ -300,9 +301,8 @@ export async function getAlertDetail() {
     return mock.getAlertDetail()
   }
 
-  // No backend endpoint — return null in live mode.
-  // AlertDetail page will rely on push notification payload data.
-  return null
+  const { data } = await http.get(`/alerts/${getUserId()}`)
+  return transform.toAlert(data)
 }
 
 // ─── Health check (dev utility) ──────────────────────────────────────
